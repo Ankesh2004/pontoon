@@ -14,7 +14,11 @@ type Router struct {
 	*chi.Mux
 }
 
-func NewRouter(authUC *usecase.AuthUseCase, projectUC *usecase.ProjectUseCase) *Router {
+func NewRouter(
+	authUC *usecase.AuthUseCase,
+	projectUC *usecase.ProjectUseCase,
+	deploymentUC *usecase.DeploymentUseCase,
+) *Router {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -24,6 +28,7 @@ func NewRouter(authUC *usecase.AuthUseCase, projectUC *usecase.ProjectUseCase) *
 
 	authHandler := handler.NewAuthHandler(authUC)
 	projectHandler := handler.NewProjectHandler(projectUC)
+	deploymentHandler := handler.NewDeploymentHandler(deploymentUC)
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Get("/github", authHandler.Login)
@@ -44,6 +49,13 @@ func NewRouter(authUC *usecase.AuthUseCase, projectUC *usecase.ProjectUseCase) *
 			r.Get("/{id}", projectHandler.Get)
 			r.Put("/{id}", projectHandler.Update)
 			r.Delete("/{id}", projectHandler.Delete)
+
+			r.Post("/{id}/deploy", deploymentHandler.Trigger)
+			r.Get("/{id}/deployments", deploymentHandler.List)
+		})
+
+		r.Route("/deployments", func(r chi.Router) {
+			r.Get("/{deploymentId}", deploymentHandler.Get)
 		})
 	})
 

@@ -14,6 +14,7 @@ import (
 	"github.com/Ankesh2004/pontoon/internal/delivery"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/github"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/postgres"
+	"github.com/Ankesh2004/pontoon/internal/infrastructure/redis"
 	"github.com/Ankesh2004/pontoon/internal/usecase"
 )
 
@@ -45,6 +46,7 @@ func run(ctx context.Context) error {
 
 	userRepo := postgres.NewUserRepo(pool)
 	projectRepo := postgres.NewProjectRepo(pool)
+	deploymentRepo := postgres.NewDeploymentRepo(pool)
 
 	oauthService := github.NewOAuthService(github.OAuthConfig{
 		ClientID:     cfg.GitHub.ClientID,
@@ -52,10 +54,17 @@ func run(ctx context.Context) error {
 		RedirectURL:  fmt.Sprintf("http://localhost%s/auth/callback", cfg.API.Addr),
 	})
 
+	asynqClient, err := redis.NewAsynqClient(cfg.Redis.URL)
+	if err != nil {
+		return err
+	}
+	defer asynqClient.Close()
+
 	authUC := usecase.NewAuthUseCase(oauthService, userRepo, cfg.JWT.Secret)
 	projectUC := usecase.NewProjectUseCase(projectRepo, cfg.Domain.Default)
+	deploymentUC := usecase.NewDeploymentUseCase(deploymentRepo, projectRepo, asynqClient)
 
-	router := delivery.NewRouter(authUC, projectUC)
+	router := delivery.NewRouter(authUC, projectUC, deploymentUC)
 
 	server := &http.Server{
 		Addr:         cfg.API.Addr,
