@@ -12,6 +12,7 @@ import (
 
 	"github.com/Ankesh2004/pontoon/internal/config"
 	"github.com/Ankesh2004/pontoon/internal/delivery"
+	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/github"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/postgres"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/redis"
@@ -61,13 +62,25 @@ func run(ctx context.Context) error {
 	}
 	defer asynqClient.Close()
 
+	redisClient, err := redis.NewRedisClient(cfg.Redis.URL)
+	if err != nil {
+		return err
+	}
+	defer redisClient.Close()
+
+	dockerClient, err := docker.NewClient()
+	if err != nil {
+		return err
+	}
+	defer dockerClient.Close()
+
 	authUC := usecase.NewAuthUseCase(oauthService, userRepo, cfg.JWT.Secret)
 	projectUC := usecase.NewProjectUseCase(projectRepo, cfg.Domain.Default)
 	deploymentUC := usecase.NewDeploymentUseCase(deploymentRepo, projectRepo, asynqClient)
 	envVarUC := usecase.NewEnvVarUseCase(envVarRepo, projectRepo)
 	webhookUC := usecase.NewWebhookUseCase(projectRepo, deploymentRepo, envVarRepo, asynqClient)
 
-	router := delivery.NewRouter(authUC, projectUC, deploymentUC, envVarUC, webhookUC)
+	router := delivery.NewRouter(authUC, projectUC, deploymentUC, envVarUC, webhookUC, redisClient, dockerClient)
 
 	server := &http.Server{
 		Addr:         cfg.API.Addr,

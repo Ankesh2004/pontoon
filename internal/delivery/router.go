@@ -5,8 +5,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/redis/go-redis/v9"
+
 	"github.com/Ankesh2004/pontoon/internal/delivery/handler"
 	mw "github.com/Ankesh2004/pontoon/internal/delivery/middleware"
+	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 	"github.com/Ankesh2004/pontoon/internal/usecase"
 )
 
@@ -20,6 +23,8 @@ func NewRouter(
 	deploymentUC *usecase.DeploymentUseCase,
 	envVarUC *usecase.EnvVarUseCase,
 	webhookUC *usecase.WebhookUseCase,
+	redisClient *redis.Client,
+	dockerClient *docker.Client,
 ) *Router {
 	r := chi.NewRouter()
 
@@ -33,6 +38,8 @@ func NewRouter(
 	deploymentHandler := handler.NewDeploymentHandler(deploymentUC)
 	envVarHandler := handler.NewEnvVarHandler(envVarUC)
 	webhookHandler := handler.NewWebhookHandler(webhookUC)
+	wsHandler := handler.NewWebSocketHandler(deploymentUC, redisClient)
+	logHandler := handler.NewLogHandler(deploymentUC, dockerClient)
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Get("/github", authHandler.Login)
@@ -66,7 +73,10 @@ func NewRouter(
 
 		r.Route("/deployments", func(r chi.Router) {
 			r.Get("/{deploymentId}", deploymentHandler.Get)
+			r.Get("/{deploymentId}/logs", logHandler.GetRuntimeLogs)
 		})
+
+		r.Get("/ws/logs", wsHandler.StreamLogs)
 	})
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
