@@ -8,7 +8,9 @@ import (
 	"syscall"
 
 	"github.com/Ankesh2004/pontoon/internal/config"
+	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/postgres"
+	"github.com/Ankesh2004/pontoon/internal/worker"
 )
 
 func main() {
@@ -37,7 +39,40 @@ func run(ctx context.Context) error {
 
 	slog.Info("database connection established")
 
-	// TODO: Initialize Redis/Asynq client and worker pool
+	dockerClient, err := docker.NewClient()
+	if err != nil {
+		return err
+	}
+	defer dockerClient.Close()
+
+	slog.Info("docker connection established")
+
+	if err := dockerClient.EnsureIngressNetwork(ctx); err != nil {
+		return err
+	}
+	slog.Info("ingress network ensured")
+
+	deploymentRepo := postgres.NewDeploymentRepo(pool)
+	projectRepo := postgres.NewProjectRepo(pool)
+	envVarRepo := postgres.NewEnvVarRepo(pool)
+
+	deployProcessor := worker.NewDeployProcessor(
+		dockerClient,
+		deploymentRepo,
+		projectRepo,
+		envVarRepo,
+	)
+
+	processor, err := worker.NewProcessor(cfg.Redis.URL, 2, deployProcessor)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		if err := processor.Start(); err != nil {
+			slog.Error("processor error", "error", err)
+		}
+	}()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -51,5 +86,7 @@ func run(ctx context.Context) error {
 		slog.Info("received signal", "signal", sig)
 	}
 
+	processor.Stop()
+	slog.Info("worker stopped")
 	return nil
 }
