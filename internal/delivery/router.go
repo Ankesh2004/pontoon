@@ -18,6 +18,7 @@ func NewRouter(
 	authUC *usecase.AuthUseCase,
 	projectUC *usecase.ProjectUseCase,
 	deploymentUC *usecase.DeploymentUseCase,
+	envVarUC *usecase.EnvVarUseCase,
 ) *Router {
 	r := chi.NewRouter()
 
@@ -29,6 +30,7 @@ func NewRouter(
 	authHandler := handler.NewAuthHandler(authUC)
 	projectHandler := handler.NewProjectHandler(projectUC)
 	deploymentHandler := handler.NewDeploymentHandler(deploymentUC)
+	envVarHandler := handler.NewEnvVarHandler(envVarUC)
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Get("/github", authHandler.Login)
@@ -52,6 +54,10 @@ func NewRouter(
 
 			r.Post("/{id}/deploy", deploymentHandler.Trigger)
 			r.Get("/{id}/deployments", deploymentHandler.List)
+
+			r.Post("/{id}/env", envVarHandler.Create)
+			r.Get("/{id}/env", envVarHandler.List)
+			r.Delete("/{id}/env/{envVarId}", envVarHandler.Delete)
 		})
 
 		r.Route("/deployments", func(r chi.Router) {

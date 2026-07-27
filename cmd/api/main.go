@@ -47,6 +47,7 @@ func run(ctx context.Context) error {
 	userRepo := postgres.NewUserRepo(pool)
 	projectRepo := postgres.NewProjectRepo(pool)
 	deploymentRepo := postgres.NewDeploymentRepo(pool)
+	envVarRepo := postgres.NewEnvVarRepo(pool)
 
 	oauthService := github.NewOAuthService(github.OAuthConfig{
 		ClientID:     cfg.GitHub.ClientID,
@@ -63,8 +64,9 @@ func run(ctx context.Context) error {
 	authUC := usecase.NewAuthUseCase(oauthService, userRepo, cfg.JWT.Secret)
 	projectUC := usecase.NewProjectUseCase(projectRepo, cfg.Domain.Default)
 	deploymentUC := usecase.NewDeploymentUseCase(deploymentRepo, projectRepo, asynqClient)
+	envVarUC := usecase.NewEnvVarUseCase(envVarRepo, projectRepo)
 
-	router := delivery.NewRouter(authUC, projectUC, deploymentUC)
+	router := delivery.NewRouter(authUC, projectUC, deploymentUC, envVarUC)
 
 	server := &http.Server{
 		Addr:         cfg.API.Addr,
