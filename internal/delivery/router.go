@@ -19,6 +19,7 @@ func NewRouter(
 	projectUC *usecase.ProjectUseCase,
 	deploymentUC *usecase.DeploymentUseCase,
 	envVarUC *usecase.EnvVarUseCase,
+	webhookUC *usecase.WebhookUseCase,
 ) *Router {
 	r := chi.NewRouter()
 
@@ -31,11 +32,14 @@ func NewRouter(
 	projectHandler := handler.NewProjectHandler(projectUC)
 	deploymentHandler := handler.NewDeploymentHandler(deploymentUC)
 	envVarHandler := handler.NewEnvVarHandler(envVarUC)
+	webhookHandler := handler.NewWebhookHandler(webhookUC)
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Get("/github", authHandler.Login)
 		r.Get("/callback", authHandler.Callback)
 	})
+
+	r.Post("/webhooks/github", webhookHandler.Handle)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.Auth(authUC))

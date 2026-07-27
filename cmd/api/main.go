@@ -65,8 +65,9 @@ func run(ctx context.Context) error {
 	projectUC := usecase.NewProjectUseCase(projectRepo, cfg.Domain.Default)
 	deploymentUC := usecase.NewDeploymentUseCase(deploymentRepo, projectRepo, asynqClient)
 	envVarUC := usecase.NewEnvVarUseCase(envVarRepo, projectRepo)
+	webhookUC := usecase.NewWebhookUseCase(projectRepo, deploymentRepo, envVarRepo, asynqClient)
 
-	router := delivery.NewRouter(authUC, projectUC, deploymentUC, envVarUC)
+	router := delivery.NewRouter(authUC, projectUC, deploymentUC, envVarUC, webhookUC)
 
 	server := &http.Server{
 		Addr:         cfg.API.Addr,
