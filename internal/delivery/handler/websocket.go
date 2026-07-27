@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -65,7 +66,23 @@ func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = deployment // Deployment validated, now stream logs
+	// Check if deployment is already in terminal state
+	if isTerminalStatus(deployment.Status) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		// Send a final message indicating deployment is complete
+		finalMsg := infraredis.LogMessage{
+			DeploymentID: deploymentID,
+			Line:         fmt.Sprintf("[DEPLOYMENT %s]", strings.ToUpper(string(deployment.Status))),
+			Timestamp:    time.Now().Unix(),
+		}
+		conn.WriteJSON(finalMsg)
+		return
+	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -87,6 +104,10 @@ func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
+
+	// Status check ticker - check every 5 seconds
+	statusTicker := time.NewTicker(5 * time.Second)
+	defer statusTicker.Stop()
 
 	done := make(chan struct{})
 	go func() {
@@ -116,6 +137,24 @@ func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+		case <-statusTicker.C:
+			// Check deployment status
+			deployment, err := h.deploymentUC.GetDeployment(r.Context(), userID, deploymentID)
+			if err != nil {
+				return
+			}
+
+			if isTerminalStatus(deployment.Status) {
+				// Send final status message
+				finalMsg := infraredis.LogMessage{
+					DeploymentID: deploymentID,
+					Line:         fmt.Sprintf("[DEPLOYMENT %s]", strings.ToUpper(string(deployment.Status))),
+					Timestamp:    time.Now().Unix(),
+				}
+				conn.WriteJSON(finalMsg)
+				return
+			}
+
 		case <-done:
 			return
 
@@ -123,6 +162,12 @@ func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func isTerminalStatus(status domain.DeploymentStatus) bool {
+	return status == domain.DeploymentStatusLive ||
+		status == domain.DeploymentStatusFailed ||
+		status == domain.DeploymentStatusStopped
 }
 
 func (h *WebSocketHandler) Close() error {

@@ -44,6 +44,13 @@ func run(ctx context.Context) error {
 		return err
 	}
 
+	// Run migrations on startup
+	slog.Info("running database migrations")
+	if err := postgres.RunMigrations(ctx, cfg.Database.URL, "./migrations"); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+	slog.Info("migrations completed successfully")
+
 	pool, err := postgres.NewPool(ctx, cfg.Database.URL)
 	if err != nil {
 		return err
@@ -82,7 +89,7 @@ func run(ctx context.Context) error {
 	defer dockerClient.Close()
 
 	authUC := usecase.NewAuthUseCase(oauthService, userRepo, cfg.JWT.Secret)
-	projectUC := usecase.NewProjectUseCase(projectRepo, cfg.Domain.Default)
+	projectUC := usecase.NewProjectUseCase(projectRepo, deploymentRepo, dockerClient, cfg.Domain.Default)
 	deploymentUC := usecase.NewDeploymentUseCase(deploymentRepo, projectRepo, asynqClient)
 	envVarUC := usecase.NewEnvVarUseCase(envVarRepo, projectRepo)
 	webhookUC := usecase.NewWebhookUseCase(projectRepo, deploymentRepo, envVarRepo, asynqClient)

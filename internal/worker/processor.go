@@ -5,6 +5,7 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/redis"
+	"github.com/Ankesh2004/pontoon/internal/tasks"
 )
 
 type Processor struct {
@@ -19,7 +20,7 @@ func NewProcessor(redisURL string, concurrency int, deployProcessor *DeployProce
 	}
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(TypeDeploy, deployProcessor.ProcessDeployTask)
+	mux.HandleFunc(tasks.TypeDeploy, deployProcessor.ProcessDeployTask)
 
 	return &Processor{
 		server: server,

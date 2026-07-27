@@ -12,6 +12,8 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/Ankesh2004/pontoon/internal/domain"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
+	"github.com/Ankesh2004/pontoon/internal/tasks"
+	"github.com/Ankesh2004/pontoon/internal/usecase"
 )
 
 type DeployProcessor struct {
@@ -19,6 +21,7 @@ type DeployProcessor struct {
 	deploymentRepo domain.DeploymentRepository
 	projectRepo    domain.ProjectRepository
 	envVarRepo     domain.EnvVarRepository
+	capacityUC     *usecase.CapacityUseCase
 }
 
 func NewDeployProcessor(
@@ -26,22 +29,29 @@ func NewDeployProcessor(
 	deploymentRepo domain.DeploymentRepository,
 	projectRepo domain.ProjectRepository,
 	envVarRepo domain.EnvVarRepository,
+	capacityUC *usecase.CapacityUseCase,
 ) *DeployProcessor {
 	return &DeployProcessor{
 		dockerClient:   dockerClient,
 		deploymentRepo: deploymentRepo,
 		projectRepo:    projectRepo,
 		envVarRepo:     envVarRepo,
+		capacityUC:     capacityUC,
 	}
 }
 
 func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) error {
-	payload, err := UnmarshalDeployPayload(t.Payload())
+	payload, err := tasks.UnmarshalDeployPayload(t.Payload())
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal payload: %w", err)
 	}
 
 	slog.Info("processing deployment", "deployment_id", payload.DeploymentID)
+
+	// Check capacity before starting
+	if err := p.capacityUC.CheckCapacity(ctx, 128); err != nil {
+		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("capacity check failed: %w", err))
+	}
 
 	// Update status to cloning
 	if err := p.deploymentRepo.UpdateStatus(payload.DeploymentID, domain.DeploymentStatusCloning, ""); err != nil {
@@ -51,14 +61,14 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	// Create temp directory for clone
 	tmpDir, err := os.MkdirTemp("", "pontoon-build-*")
 	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, fmt.Errorf("failed to create temp dir: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("failed to create temp dir: %w", err))
 	}
 	defer os.RemoveAll(tmpDir)
 
 	// Clone repository
 	repoDir := filepath.Join(tmpDir, "repo")
 	if err := p.cloneRepo(ctx, payload.RepoURL, payload.Branch, repoDir); err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, fmt.Errorf("failed to clone repo: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("failed to clone repo: %w", err))
 	}
 
 	// Update status to building
@@ -73,26 +83,29 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 		ImageTag: imageTag,
 	})
 	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, fmt.Errorf("failed to build image: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to build image: %w", err))
 	}
 
 	slog.Info("image built", "image", imageTag, "output_length", len(buildOutput))
 
+	// Truncate build logs to 100KB
+	truncatedLogs := p.truncateLogs(buildOutput, 100*1024)
+
 	// Update status to running
-	if err := p.deploymentRepo.UpdateStatus(payload.DeploymentID, domain.DeploymentStatusRunning, ""); err != nil {
-		return fmt.Errorf("failed to update status: %w", err)
+	if err := p.deploymentRepo.UpdateStatus(payload.DeploymentID, domain.DeploymentStatusRunning, truncatedLogs); err != nil {
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to update status: %w", err))
 	}
 
 	// Get project details
 	project, err := p.projectRepo.GetByID(payload.ProjectID)
 	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, fmt.Errorf("failed to get project: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to get project: %w", err))
 	}
 
 	// Get environment variables
 	envVars, err := p.envVarRepo.GetByProjectID(payload.ProjectID)
 	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, fmt.Errorf("failed to get env vars: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to get env vars: %w", err))
 	}
 
 	// Merge env vars
@@ -115,7 +128,7 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 		CPULimit:      0.5,
 	})
 	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, fmt.Errorf("failed to run container: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to run container: %w", err))
 	}
 
 	// Update deployment with success
@@ -126,7 +139,7 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 		ContainerID:   containerID,
 		ContainerName: containerName,
 		CommitSHA:     payload.CommitSHA,
-		BuildLogs:     buildOutput,
+		BuildLogs:     truncatedLogs,
 	}
 
 	if err := p.deploymentRepo.Update(deployment); err != nil {
@@ -146,19 +159,38 @@ func (p *DeployProcessor) cloneRepo(ctx context.Context, repoURL, branch, destDi
 	return nil
 }
 
-func (p *DeployProcessor) failDeployment(ctx context.Context, deploymentID string, err error) error {
+func (p *DeployProcessor) failDeployment(ctx context.Context, deploymentID, imageTag, containerID string, err error) error {
 	slog.Error("deployment failed", "deployment_id", deploymentID, "error", err)
-	
+
+	// Cleanup container if it was created
+	if containerID != "" {
+		slog.Info("cleaning up container", "container_id", containerID)
+		if stopErr := p.dockerClient.StopContainer(ctx, containerID); stopErr != nil {
+			slog.Warn("failed to stop container during cleanup", "error", stopErr)
+		}
+		if removeErr := p.dockerClient.RemoveContainer(ctx, containerID); removeErr != nil {
+			slog.Warn("failed to remove container during cleanup", "error", removeErr)
+		}
+	}
+
+	// Cleanup image if it was built
+	if imageTag != "" {
+		slog.Info("cleaning up image", "image", imageTag)
+		if removeErr := p.dockerClient.RemoveImage(ctx, imageTag); removeErr != nil {
+			slog.Warn("failed to remove image during cleanup", "error", removeErr)
+		}
+	}
+
 	// Truncate error message to fit in database
 	errMsg := err.Error()
 	if len(errMsg) > 1000 {
 		errMsg = errMsg[:1000] + "... (truncated)"
 	}
-	
+
 	if updateErr := p.deploymentRepo.UpdateStatus(deploymentID, domain.DeploymentStatusFailed, errMsg); updateErr != nil {
 		slog.Error("failed to update deployment status", "error", updateErr)
 	}
-	
+
 	return err
 }
 

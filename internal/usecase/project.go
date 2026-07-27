@@ -2,22 +2,35 @@ package usecase
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
 	"github.com/Ankesh2004/pontoon/internal/domain"
+	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 )
 
 type ProjectUseCase struct {
-	projectRepo   domain.ProjectRepository
-	defaultDomain string
+	projectRepo    domain.ProjectRepository
+	deploymentRepo domain.DeploymentRepository
+	dockerClient   *docker.Client
+	defaultDomain  string
 }
 
-func NewProjectUseCase(projectRepo domain.ProjectRepository, defaultDomain string) *ProjectUseCase {
+func NewProjectUseCase(
+	projectRepo domain.ProjectRepository,
+	deploymentRepo domain.DeploymentRepository,
+	dockerClient *docker.Client,
+	defaultDomain string,
+) *ProjectUseCase {
 	return &ProjectUseCase{
-		projectRepo:   projectRepo,
-		defaultDomain: defaultDomain,
+		projectRepo:    projectRepo,
+		deploymentRepo: deploymentRepo,
+		dockerClient:   dockerClient,
+		defaultDomain:  defaultDomain,
 	}
 }
 
@@ -34,15 +47,21 @@ func (uc *ProjectUseCase) CreateProject(ctx context.Context, input CreateProject
 		return nil, fmt.Errorf("invalid repo URL: %w", err)
 	}
 
+	webhookSecret, err := generateWebhookSecret()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate webhook secret: %w", err)
+	}
+
 	project := &domain.Project{
-		ID:        uuid.New().String(),
-		UserID:    input.UserID,
-		Name:      input.Name,
-		RepoURL:   input.RepoURL,
-		RepoOwner: owner,
-		RepoName:  name,
-		Branch:    input.Branch,
-		Domain:    fmt.Sprintf("%s.%s", input.Name, uc.defaultDomain),
+		ID:            uuid.New().String(),
+		UserID:        input.UserID,
+		Name:          input.Name,
+		RepoURL:       input.RepoURL,
+		RepoOwner:     owner,
+		RepoName:      name,
+		Branch:        input.Branch,
+		Domain:        fmt.Sprintf("%s.%s", input.Name, uc.defaultDomain),
+		WebhookSecret: webhookSecret,
 	}
 
 	if err := uc.projectRepo.Create(project); err != nil {
@@ -50,6 +69,14 @@ func (uc *ProjectUseCase) CreateProject(ctx context.Context, input CreateProject
 	}
 
 	return project, nil
+}
+
+func generateWebhookSecret() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 func (uc *ProjectUseCase) GetProject(ctx context.Context, userID, projectID string) (*domain.Project, error) {
@@ -107,6 +134,25 @@ func (uc *ProjectUseCase) DeleteProject(ctx context.Context, userID, projectID s
 
 	if project.UserID != userID {
 		return domain.ErrForbidden
+	}
+
+	deployments, err := uc.deploymentRepo.GetByProjectID(projectID)
+	if err != nil {
+		return fmt.Errorf("failed to get deployments: %w", err)
+	}
+
+	for _, deployment := range deployments {
+		if deployment.ContainerID != "" && deployment.Status == domain.DeploymentStatusLive {
+			slog.Info("stopping container for project deletion", "deployment_id", deployment.ID, "container_id", deployment.ContainerID)
+			
+			if err := uc.dockerClient.StopContainer(ctx, deployment.ContainerID); err != nil {
+				slog.Warn("failed to stop container", "error", err, "container_id", deployment.ContainerID)
+			}
+			
+			if err := uc.dockerClient.RemoveContainer(ctx, deployment.ContainerID); err != nil {
+				slog.Warn("failed to remove container", "error", err, "container_id", deployment.ContainerID)
+			}
+		}
 	}
 
 	return uc.projectRepo.Delete(projectID)

@@ -2,13 +2,13 @@ package usecase
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 
 	"github.com/Ankesh2004/pontoon/internal/domain"
+	"github.com/Ankesh2004/pontoon/internal/tasks"
 )
 
 type DeploymentUseCase struct {
@@ -57,22 +57,22 @@ func (uc *DeploymentUseCase) TriggerDeployment(ctx context.Context, input Trigge
 		return nil, fmt.Errorf("failed to create deployment: %w", err)
 	}
 
-	payload := map[string]interface{}{
-		"deployment_id": deployment.ID,
-		"project_id":    input.ProjectID,
-		"user_id":       input.UserID,
-		"repo_url":      project.RepoURL,
-		"branch":        project.Branch,
-		"commit_sha":    input.CommitSHA,
-		"domain":        project.Domain,
+	payload := &tasks.DeployPayload{
+		DeploymentID: deployment.ID,
+		ProjectID:    input.ProjectID,
+		UserID:       input.UserID,
+		RepoURL:      project.RepoURL,
+		Branch:       project.Branch,
+		CommitSHA:    input.CommitSHA,
+		Domain:       project.Domain,
 	}
 
-	payloadBytes, err := json.Marshal(payload)
+	payloadBytes, err := payload.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	task := asynq.NewTask("deploy", payloadBytes)
+	task := asynq.NewTask(tasks.TypeDeploy, payloadBytes)
 	if _, err := uc.asynqClient.Enqueue(task); err != nil {
 		return nil, fmt.Errorf("failed to enqueue task: %w", err)
 	}

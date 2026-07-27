@@ -8,7 +8,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/Ankesh2004/pontoon/internal/domain"
-	"github.com/Ankesh2004/pontoon/internal/worker"
+	"github.com/Ankesh2004/pontoon/internal/tasks"
 )
 
 type WebhookUseCase struct {
@@ -83,7 +83,7 @@ func (uc *WebhookUseCase) TriggerDeploymentFromWebhook(
 		return nil, fmt.Errorf("failed to create deployment: %w", err)
 	}
 
-	payload := &worker.DeployPayload{
+	payload := &tasks.DeployPayload{
 		DeploymentID: deployment.ID,
 		ProjectID:    projectID,
 		UserID:       project.UserID,
@@ -99,7 +99,7 @@ func (uc *WebhookUseCase) TriggerDeploymentFromWebhook(
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	task := asynq.NewTask(worker.TypeDeploy, payloadBytes)
+	task := asynq.NewTask(tasks.TypeDeploy, payloadBytes)
 	if _, err := uc.asynqClient.Enqueue(task); err != nil {
 		return nil, fmt.Errorf("failed to enqueue deployment task: %w", err)
 	}

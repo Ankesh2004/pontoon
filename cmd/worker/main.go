@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -12,6 +13,7 @@ import (
 	"github.com/Ankesh2004/pontoon/internal/config"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/postgres"
+	"github.com/Ankesh2004/pontoon/internal/usecase"
 	"github.com/Ankesh2004/pontoon/internal/worker"
 )
 
@@ -38,6 +40,13 @@ func run(ctx context.Context) error {
 		return err
 	}
 
+	// Run migrations on startup
+	slog.Info("running database migrations")
+	if err := postgres.RunMigrations(ctx, cfg.Database.URL, "./migrations"); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+	slog.Info("migrations completed successfully")
+
 	pool, err := postgres.NewPool(ctx, cfg.Database.URL)
 	if err != nil {
 		return err
@@ -63,11 +72,18 @@ func run(ctx context.Context) error {
 	projectRepo := postgres.NewProjectRepo(pool)
 	envVarRepo := postgres.NewEnvVarRepo(pool)
 
+	capacityUC := usecase.NewCapacityUseCase(
+		dockerClient,
+		cfg.Worker.MaxContainerMemoryMB,
+		cfg.Worker.TotalContainerMemoryMB,
+	)
+
 	deployProcessor := worker.NewDeployProcessor(
 		dockerClient,
 		deploymentRepo,
 		projectRepo,
 		envVarRepo,
+		capacityUC,
 	)
 
 	processor, err := worker.NewProcessor(cfg.Redis.URL, 2, deployProcessor)
