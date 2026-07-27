@@ -1,3 +1,4 @@
+-- +goose Up
 -- Users (tenant_id == user_id in v1)
 CREATE TABLE users (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -59,3 +60,9 @@ CREATE INDEX idx_deployments_project_id ON deployments(project_id);
 CREATE INDEX idx_deployments_user_id ON deployments(user_id);
 CREATE INDEX idx_deployments_status ON deployments(status);
 CREATE INDEX idx_env_vars_project_id ON env_vars(project_id);
+
+-- +goose Down
+DROP TABLE IF EXISTS env_vars;
+DROP TABLE IF EXISTS deployments;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS users;

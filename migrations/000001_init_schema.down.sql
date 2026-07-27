@@ -1,4 +1,0 @@
-DROP TABLE IF EXISTS env_vars;
-DROP TABLE IF EXISTS deployments;
-DROP TABLE IF EXISTS projects;
-DROP TABLE IF EXISTS users;

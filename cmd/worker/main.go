@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/joho/godotenv"
+
 	"github.com/Ankesh2004/pontoon/internal/config"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/postgres"
@@ -14,6 +16,11 @@ import (
 )
 
 func main() {
+	// Load .env file if it exists
+	if err := godotenv.Load(); err != nil {
+		slog.Info("No .env file found, using environment variables")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
