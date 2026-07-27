@@ -44,6 +44,7 @@ func run(ctx context.Context) error {
 	slog.Info("database connection established")
 
 	userRepo := postgres.NewUserRepo(pool)
+	projectRepo := postgres.NewProjectRepo(pool)
 
 	oauthService := github.NewOAuthService(github.OAuthConfig{
 		ClientID:     cfg.GitHub.ClientID,
@@ -52,8 +53,9 @@ func run(ctx context.Context) error {
 	})
 
 	authUC := usecase.NewAuthUseCase(oauthService, userRepo, cfg.JWT.Secret)
+	projectUC := usecase.NewProjectUseCase(projectRepo, cfg.Domain.Default)
 
-	router := delivery.NewRouter(authUC)
+	router := delivery.NewRouter(authUC, projectUC)
 
 	server := &http.Server{
 		Addr:         cfg.API.Addr,
