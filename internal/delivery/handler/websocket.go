@@ -2,15 +2,16 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	goredis "github.com/redis/go-redis/v9"
 
-	"github.com/Ankesh2004/pontoon/internal/delivery/middleware"
 	"github.com/Ankesh2004/pontoon/internal/domain"
 	infraredis "github.com/Ankesh2004/pontoon/internal/infrastructure/redis"
 	"github.com/Ankesh2004/pontoon/internal/usecase"
@@ -40,47 +41,36 @@ func NewWebSocketHandler(
 }
 
 func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r.Context())
-	if userID == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	deploymentID := chi.URLParam(r, "deploymentId")
+	if deploymentID == "" {
+		http.Error(w, "deployment id required", http.StatusBadRequest)
 		return
 	}
 
-	deploymentID := r.URL.Query().Get("deployment_id")
-	if deploymentID == "" {
-		http.Error(w, "deployment_id query parameter required", http.StatusBadRequest)
+	ticket := r.URL.Query().Get("ticket")
+	if ticket == "" {
+		http.Error(w, "ticket query parameter required", http.StatusBadRequest)
+		return
+	}
+
+	key := "ws_ticket:" + ticket
+	userID, err := h.redisClient.GetDel(r.Context(), key).Result()
+	if err != nil {
+		http.Error(w, "invalid or expired ticket", http.StatusUnauthorized)
 		return
 	}
 
 	deployment, err := h.deploymentUC.GetDeployment(r.Context(), userID, deploymentID)
 	if err != nil {
-		if err == domain.ErrNotFound {
+		if errors.Is(err, domain.ErrNotFound) || err.Error() == domain.ErrNotFound.Error() {
 			http.Error(w, "deployment not found", http.StatusNotFound)
 			return
 		}
-		if err == domain.ErrForbidden {
+		if errors.Is(err, domain.ErrForbidden) || err.Error() == domain.ErrForbidden.Error() {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
 		http.Error(w, "failed to get deployment", http.StatusInternalServerError)
-		return
-	}
-
-	// Check if deployment is already in terminal state
-	if isTerminalStatus(deployment.Status) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return
-		}
-		defer conn.Close()
-
-		// Send a final message indicating deployment is complete
-		finalMsg := infraredis.LogMessage{
-			DeploymentID: deploymentID,
-			Line:         fmt.Sprintf("[DEPLOYMENT %s]", strings.ToUpper(string(deployment.Status))),
-			Timestamp:    time.Now().Unix(),
-		}
-		conn.WriteJSON(finalMsg)
 		return
 	}
 
@@ -89,6 +79,16 @@ func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+
+	if isTerminalStatus(deployment.Status) {
+		finalMsg := infraredis.LogMessage{
+			DeploymentID: deploymentID,
+			Line:         fmt.Sprintf("[DEPLOYMENT %s]", strings.ToUpper(string(deployment.Status))),
+			Timestamp:    time.Now().Unix(),
+		}
+		conn.WriteJSON(finalMsg)
+		return
+	}
 
 	channel := fmt.Sprintf("deployment:%s:logs", deploymentID)
 	pubsub := h.redisClient.Subscribe(r.Context(), channel)
@@ -105,7 +105,6 @@ func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	// Status check ticker - check every 5 seconds
 	statusTicker := time.NewTicker(5 * time.Second)
 	defer statusTicker.Stop()
 
@@ -138,14 +137,12 @@ func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case <-statusTicker.C:
-			// Check deployment status
 			deployment, err := h.deploymentUC.GetDeployment(r.Context(), userID, deploymentID)
 			if err != nil {
 				return
 			}
 
 			if isTerminalStatus(deployment.Status) {
-				// Send final status message
 				finalMsg := infraredis.LogMessage{
 					DeploymentID: deploymentID,
 					Line:         fmt.Sprintf("[DEPLOYMENT %s]", strings.ToUpper(string(deployment.Status))),
@@ -168,8 +165,4 @@ func isTerminalStatus(status domain.DeploymentStatus) bool {
 	return status == domain.DeploymentStatusLive ||
 		status == domain.DeploymentStatusFailed ||
 		status == domain.DeploymentStatusStopped
-}
-
-func (h *WebSocketHandler) Close() error {
-	return h.redisClient.Close()
 }

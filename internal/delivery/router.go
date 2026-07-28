@@ -5,8 +5,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/redis/go-redis/v9"
+	goredis "github.com/redis/go-redis/v9"
 
+	"github.com/Ankesh2004/pontoon/internal/config"
 	"github.com/Ankesh2004/pontoon/internal/delivery/handler"
 	mw "github.com/Ankesh2004/pontoon/internal/delivery/middleware"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
@@ -18,12 +19,14 @@ type Router struct {
 }
 
 func NewRouter(
+	cfg *config.Config,
 	authUC *usecase.AuthUseCase,
+	userUC *usecase.UserUseCase,
 	projectUC *usecase.ProjectUseCase,
 	deploymentUC *usecase.DeploymentUseCase,
 	envVarUC *usecase.EnvVarUseCase,
 	webhookUC *usecase.WebhookUseCase,
-	redisClient *redis.Client,
+	redisClient *goredis.Client,
 	dockerClient *docker.Client,
 ) *Router {
 	r := chi.NewRouter()
@@ -32,8 +35,9 @@ func NewRouter(
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(mw.CORS(cfg.CORS.AllowedOrigins))
 
-	authHandler := handler.NewAuthHandler(authUC)
+	authHandler := handler.NewAuthHandler(authUC, userUC, redisClient)
 	projectHandler := handler.NewProjectHandler(projectUC)
 	deploymentHandler := handler.NewDeploymentHandler(deploymentUC)
 	envVarHandler := handler.NewEnvVarHandler(envVarUC)
@@ -44,6 +48,13 @@ func NewRouter(
 	r.Route("/auth", func(r chi.Router) {
 		r.Get("/github", authHandler.Login)
 		r.Get("/callback", authHandler.Callback)
+		r.Get("/logout", authHandler.Logout)
+
+		r.Group(func(r chi.Router) {
+			r.Use(mw.Auth(authUC))
+			r.Get("/me", authHandler.Me)
+			r.Post("/ws-ticket", authHandler.WSTicket)
+		})
 	})
 
 	r.Post("/webhooks/github", webhookHandler.Handle)
@@ -75,9 +86,9 @@ func NewRouter(
 			r.Get("/{deploymentId}", deploymentHandler.Get)
 			r.Get("/{deploymentId}/logs", logHandler.GetRuntimeLogs)
 		})
-
-		r.Get("/ws/logs", wsHandler.StreamLogs)
 	})
+
+	r.Get("/api/v1/deployments/{deploymentId}/ws", wsHandler.StreamLogs)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -50,11 +51,11 @@ func (h *LogHandler) GetRuntimeLogs(w http.ResponseWriter, r *http.Request) {
 
 	deployment, err := h.deploymentUC.GetDeployment(r.Context(), userID, deploymentID)
 	if err != nil {
-		if err == domain.ErrNotFound {
+		if errors.Is(err, domain.ErrNotFound) || err.Error() == domain.ErrNotFound.Error() {
 			http.Error(w, "deployment not found", http.StatusNotFound)
 			return
 		}
-		if err == domain.ErrForbidden {
+		if errors.Is(err, domain.ErrForbidden) || err.Error() == domain.ErrForbidden.Error() {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}

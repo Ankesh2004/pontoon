@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -15,6 +16,11 @@ type Config struct {
 	Domain   DomainConfig
 	Worker   WorkerConfig
 	Webhook  WebhookConfig
+	CORS     CORSConfig
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string
 }
 
 type APIConfig struct {
@@ -79,6 +85,9 @@ func Load() (*Config, error) {
 		Webhook: WebhookConfig{
 			Secret: getEnv("GITHUB_WEBHOOK_SECRET", ""),
 		},
+		CORS: CORSConfig{
+			AllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173"}),
+		},
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -124,4 +133,20 @@ func getEnvInt(key string, defaultValue int) int {
 		return defaultValue
 	}
 	return value
+}
+
+func getEnvList(key string, defaultValue []string) []string {
+	valueStr := os.Getenv(key)
+	if valueStr == "" {
+		return defaultValue
+	}
+	parts := strings.Split(valueStr, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }

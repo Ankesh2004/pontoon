@@ -89,12 +89,13 @@ func run(ctx context.Context) error {
 	defer dockerClient.Close()
 
 	authUC := usecase.NewAuthUseCase(oauthService, userRepo, cfg.JWT.Secret)
+	userUC := usecase.NewUserUseCase(userRepo)
 	projectUC := usecase.NewProjectUseCase(projectRepo, deploymentRepo, dockerClient, cfg.Domain.Default)
 	deploymentUC := usecase.NewDeploymentUseCase(deploymentRepo, projectRepo, asynqClient)
 	envVarUC := usecase.NewEnvVarUseCase(envVarRepo, projectRepo)
 	webhookUC := usecase.NewWebhookUseCase(projectRepo, deploymentRepo, envVarRepo, asynqClient)
 
-	router := delivery.NewRouter(authUC, projectUC, deploymentUC, envVarUC, webhookUC, redisClient, dockerClient)
+	router := delivery.NewRouter(cfg, authUC, userUC, projectUC, deploymentUC, envVarUC, webhookUC, redisClient, dockerClient)
 
 	server := &http.Server{
 		Addr:         cfg.API.Addr,

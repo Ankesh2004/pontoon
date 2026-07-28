@@ -3,16 +3,23 @@ package handler
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+	goredis "github.com/redis/go-redis/v9"
+
+	"github.com/Ankesh2004/pontoon/internal/delivery/middleware"
 	"github.com/Ankesh2004/pontoon/internal/usecase"
 )
 
 type AuthHandler struct {
-	authUC *usecase.AuthUseCase
-	states *stateStore
+	authUC      *usecase.AuthUseCase
+	userUC      *usecase.UserUseCase
+	states      *stateStore
+	redisClient *goredis.Client
 }
 
 type stateStore struct {
@@ -70,10 +77,12 @@ func (s *stateStore) Validate(state string) bool {
 	return true
 }
 
-func NewAuthHandler(authUC *usecase.AuthUseCase) *AuthHandler {
+func NewAuthHandler(authUC *usecase.AuthUseCase, userUC *usecase.UserUseCase, redisClient *goredis.Client) *AuthHandler {
 	return &AuthHandler{
-		authUC: authUC,
-		states: newStateStore(),
+		authUC:      authUC,
+		userUC:      userUC,
+		states:      newStateStore(),
+		redisClient: redisClient,
 	}
 }
 
@@ -113,7 +122,7 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "pontoon_token",
+		Name:     middleware.SessionCookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
@@ -122,7 +131,64 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   86400,
 	})
 
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.userUC.GetUserByID(r.Context(), userID)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id":       user.ID,
+		"username": user.GitHubUsername,
+		"avatar":   user.AvatarURL,
+		"email":    user.Email,
+	})
+}
+
+func (h *AuthHandler) WSTicket(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	ticket := uuid.New().String()
+	key := "ws_ticket:" + ticket
+
+	err := h.redisClient.Set(r.Context(), key, userID, 30*time.Second).Err()
+	if err != nil {
+		http.Error(w, "failed to create ticket", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"ticket":     ticket,
+		"expires_in": 30,
+	})
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     middleware.SessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"token":"` + token + `"}`))
 }
