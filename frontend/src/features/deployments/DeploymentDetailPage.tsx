@@ -45,6 +45,10 @@ export function DeploymentDetailPage() {
     failed: 'bg-red-500/20 text-red-500',
   };
 
+  const isActiveStatus = (status: string) => {
+    return ['pending', 'cloning', 'building', 'running'].includes(status);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -60,8 +64,11 @@ export function DeploymentDetailPage() {
             Deployment {deployment.id.slice(0, 8)}
           </h1>
           <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
-            <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusColors[deployment.status]}`}>
-              {deployment.status}
+            <span className={`relative rounded-full px-3 py-1 text-xs font-medium ${statusColors[deployment.status]}`}>
+              {isActiveStatus(deployment.status) && (
+                <span className={`absolute inset-0 rounded-full ${statusColors[deployment.status]} animate-pulse-ring`} />
+              )}
+              <span className="relative">{deployment.status}</span>
             </span>
             <span>Commit: {deployment.commit_sha.slice(0, 7)}</span>
             <span>Triggered by: {deployment.triggered_by}</span>
