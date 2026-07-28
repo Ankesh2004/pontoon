@@ -1,10 +1,10 @@
 import { useParams } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { deploymentsApi } from '../../api/endpoints';
+import { deploymentsApi, projectsApi } from '../../api/endpoints';
 import { useState, useCallback } from 'react';
 import { LogTerminal } from '../logs/LogTerminal';
 import { LogStreamer } from '../logs/LogStreamer';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 
 export function DeploymentDetailPage() {
@@ -17,6 +17,16 @@ export function DeploymentDetailPage() {
     queryKey: ['deployment', deploymentId],
     queryFn: () => deploymentsApi.get(deploymentId),
     enabled: !!deploymentId,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status && ['pending', 'cloning', 'building', 'running'].includes(status) ? 2000 : false;
+    },
+  });
+
+  const { data: project } = useQuery({
+    queryKey: ['project', deployment?.project_id],
+    queryFn: () => projectsApi.get(deployment!.project_id),
+    enabled: !!deployment?.project_id,
   });
 
   const handleLog = useCallback((line: string) => {
@@ -49,6 +59,12 @@ export function DeploymentDetailPage() {
     return ['pending', 'cloning', 'building', 'running'].includes(status);
   };
 
+  const deploymentUrl = project?.domain.startsWith('http://') || project?.domain.startsWith('https://')
+    ? project.domain
+    : project?.domain
+    ? `https://${project.domain}`
+    : undefined;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -74,7 +90,32 @@ export function DeploymentDetailPage() {
             <span>Triggered by: {deployment.triggered_by}</span>
           </div>
         </div>
+        {deployment.status === 'live' && deploymentUrl && (
+          <a
+            href={deploymentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Open App
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        )}
       </div>
+
+      {deployment.status === 'live' && deploymentUrl && (
+        <div className="rounded-lg border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-700 dark:text-green-400">
+          Deployment is live at{' '}
+          <a
+            href={deploymentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono underline"
+          >
+            {deploymentUrl}
+          </a>
+        </div>
+      )}
 
       <div className="rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border p-4">

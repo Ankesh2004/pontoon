@@ -14,10 +14,10 @@ import (
 )
 
 type BuildConfig struct {
-	RepoURL   string
-	Branch    string
-	ImageTag  string
-	WorkDir   string
+	RepoURL  string
+	Branch   string
+	ImageTag string
+	WorkDir  string
 }
 
 func (c *Client) BuildImage(ctx context.Context, cfg BuildConfig) (string, error) {
@@ -40,11 +40,12 @@ func (c *Client) BuildImage(ctx context.Context, cfg BuildConfig) (string, error
 	}
 	defer resp.Body.Close()
 
-	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+	var logs bytes.Buffer
+	if _, err := io.Copy(&logs, resp.Body); err != nil {
 		return "", fmt.Errorf("failed to read build response: %w", err)
 	}
 
-	return cfg.ImageTag, nil
+	return logs.String(), nil
 }
 
 func createBuildContext(contextDir string) (io.ReadCloser, error) {
