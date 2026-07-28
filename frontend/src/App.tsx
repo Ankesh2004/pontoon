@@ -11,6 +11,9 @@ import { LoginPage } from './features/auth/LoginPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ProjectsPage } from './features/projects/ProjectsPage';
 import { ProjectDetailPage } from './features/projects/ProjectDetailPage';
+import { DeploymentsPage } from './features/deployments/DeploymentsPage';
+import { DeploymentDetailPage } from './features/deployments/DeploymentDetailPage';
+import { SettingsPage } from './features/settings/SettingsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,12 +68,45 @@ const projectDetailRoute = createRoute({
   ),
 });
 
+const deploymentsRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/deployments',
+  component: () => (
+    <AuthGuard>
+      <DeploymentsPage />
+    </AuthGuard>
+  ),
+});
+
+const deploymentDetailRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/deployments/$deploymentId',
+  component: () => (
+    <AuthGuard>
+      <DeploymentDetailPage />
+    </AuthGuard>
+  ),
+});
+
+const settingsRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/settings',
+  component: () => (
+    <AuthGuard>
+      <SettingsPage />
+    </AuthGuard>
+  ),
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   layoutRoute.addChildren([
     indexRoute,
     projectsRoute,
     projectDetailRoute,
+    deploymentsRoute,
+    deploymentDetailRoute,
+    settingsRoute,
   ]),
 ]);
 

@@ -8,15 +8,16 @@ import (
 )
 
 type Config struct {
-	API      APIConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	GitHub   GitHubConfig
-	JWT      JWTConfig
-	Domain   DomainConfig
-	Worker   WorkerConfig
-	Webhook  WebhookConfig
-	CORS     CORSConfig
+	API         APIConfig
+	Database    DatabaseConfig
+	Redis       RedisConfig
+	GitHub      GitHubConfig
+	JWT         JWTConfig
+	Domain      DomainConfig
+	Worker      WorkerConfig
+	Webhook     WebhookConfig
+	CORS        CORSConfig
+	FrontendURL string
 }
 
 type CORSConfig struct {
@@ -88,6 +89,7 @@ func Load() (*Config, error) {
 		CORS: CORSConfig{
 			AllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173"}),
 		},
+		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"),
 	}
 
 	if err := cfg.Validate(); err != nil {
