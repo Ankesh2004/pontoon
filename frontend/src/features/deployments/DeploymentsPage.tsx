@@ -96,6 +96,10 @@ export function DeploymentsPage() {
     }
   };
 
+  const isActiveStatus = (status: string) => {
+    return ['pending', 'cloning', 'building', 'running'].includes(status);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -119,9 +123,14 @@ export function DeploymentsPage() {
                   <h3 className="font-semibold text-foreground">
                     {deployment.id.slice(0, 8)}
                   </h3>
-                  <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(deployment.status)}`}>
-                    {getStatusIcon(deployment.status)}
-                    {deployment.status}
+                  <span className={`relative flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(deployment.status)}`}>
+                    {isActiveStatus(deployment.status) && (
+                      <span className={`absolute inset-0 rounded-full ${getStatusColor(deployment.status)} animate-pulse-ring`} />
+                    )}
+                    <span className="relative flex items-center gap-1.5">
+                      {getStatusIcon(deployment.status)}
+                      {deployment.status}
+                    </span>
                   </span>
                 </div>
                 <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">

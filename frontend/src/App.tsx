@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router';
 import { Layout } from './components/layout/Layout';
 import { AuthGuard } from './components/layout/AuthGuard';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginPage } from './features/auth/LoginPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ProjectsPage } from './features/projects/ProjectsPage';
@@ -43,7 +44,9 @@ const indexRoute = createRoute({
   path: '/',
   component: () => (
     <AuthGuard>
-      <DashboardPage />
+      <ErrorBoundary>
+        <DashboardPage />
+      </ErrorBoundary>
     </AuthGuard>
   ),
 });
@@ -53,7 +56,9 @@ const projectsRoute = createRoute({
   path: '/projects',
   component: () => (
     <AuthGuard>
-      <ProjectsPage />
+      <ErrorBoundary>
+        <ProjectsPage />
+      </ErrorBoundary>
     </AuthGuard>
   ),
 });
@@ -63,7 +68,9 @@ const projectDetailRoute = createRoute({
   path: '/projects/$projectId',
   component: () => (
     <AuthGuard>
-      <ProjectDetailPage />
+      <ErrorBoundary>
+        <ProjectDetailPage />
+      </ErrorBoundary>
     </AuthGuard>
   ),
 });
@@ -73,7 +80,9 @@ const deploymentsRoute = createRoute({
   path: '/deployments',
   component: () => (
     <AuthGuard>
-      <DeploymentsPage />
+      <ErrorBoundary>
+        <DeploymentsPage />
+      </ErrorBoundary>
     </AuthGuard>
   ),
 });
@@ -83,7 +92,9 @@ const deploymentDetailRoute = createRoute({
   path: '/deployments/$deploymentId',
   component: () => (
     <AuthGuard>
-      <DeploymentDetailPage />
+      <ErrorBoundary>
+        <DeploymentDetailPage />
+      </ErrorBoundary>
     </AuthGuard>
   ),
 });
@@ -93,7 +104,9 @@ const settingsRoute = createRoute({
   path: '/settings',
   component: () => (
     <AuthGuard>
-      <SettingsPage />
+      <ErrorBoundary>
+        <SettingsPage />
+      </ErrorBoundary>
     </AuthGuard>
   ),
 });

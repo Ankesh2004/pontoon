@@ -1,17 +1,35 @@
-import { useQuery } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
-import { projectsApi } from '../../api/endpoints';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { useParams, useNavigate } from '@tanstack/react-router';
+import { projectsApi, deploymentsApi } from '../../api/endpoints';
 import { EnvVarsManager } from '../env-vars/EnvVarsManager';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 export function ProjectDetailPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string };
+  const navigate = useNavigate();
+  const [deployError, setDeployError] = useState<string | null>(null);
 
   const { data: project, isLoading, error } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectsApi.get(projectId),
     enabled: !!projectId,
   });
+
+  const deployMutation = useMutation({
+    mutationFn: () => deploymentsApi.trigger(projectId),
+    onSuccess: (deployment) => {
+      navigate({ to: `/deployments/${deployment.id}` });
+    },
+    onError: (error: Error) => {
+      setDeployError(error.message);
+    },
+  });
+
+  const handleDeploy = () => {
+    setDeployError(null);
+    deployMutation.mutate();
+  };
 
   if (isLoading) {
     return <div className="text-muted-foreground">Loading project...</div>;
@@ -42,10 +60,21 @@ export function ProjectDetailPage() {
             <span className="font-mono">{project.domain}</span>
           </div>
         </div>
-        <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-          Deploy Now
+        <button
+          onClick={handleDeploy}
+          disabled={deployMutation.isPending}
+          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {deployMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {deployMutation.isPending ? 'Deploying...' : 'Deploy Now'}
         </button>
       </div>
+
+      {deployError && (
+        <div className="rounded-md bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive">
+          {deployError}
+        </div>
+      )}
 
       <div className="rounded-lg border border-border bg-card p-6">
         <h2 className="mb-4 text-xl font-semibold text-foreground">
