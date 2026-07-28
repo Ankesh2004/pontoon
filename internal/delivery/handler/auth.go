@@ -20,6 +20,7 @@ type AuthHandler struct {
 	userUC      *usecase.UserUseCase
 	states      *stateStore
 	redisClient *goredis.Client
+	frontendURL string
 }
 
 type stateStore struct {
@@ -77,12 +78,13 @@ func (s *stateStore) Validate(state string) bool {
 	return true
 }
 
-func NewAuthHandler(authUC *usecase.AuthUseCase, userUC *usecase.UserUseCase, redisClient *goredis.Client) *AuthHandler {
+func NewAuthHandler(authUC *usecase.AuthUseCase, userUC *usecase.UserUseCase, redisClient *goredis.Client, frontendURL string) *AuthHandler {
 	return &AuthHandler{
 		authUC:      authUC,
 		userUC:      userUC,
 		states:      newStateStore(),
 		redisClient: redisClient,
+		frontendURL: frontendURL,
 	}
 }
 
@@ -131,7 +133,7 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   86400,
 	})
 
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, h.frontendURL, http.StatusTemporaryRedirect)
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {

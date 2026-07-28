@@ -37,7 +37,7 @@ func NewRouter(
 	r.Use(middleware.RealIP)
 	r.Use(mw.CORS(cfg.CORS.AllowedOrigins))
 
-	authHandler := handler.NewAuthHandler(authUC, userUC, redisClient)
+	authHandler := handler.NewAuthHandler(authUC, userUC, redisClient, cfg.FrontendURL)
 	projectHandler := handler.NewProjectHandler(projectUC)
 	deploymentHandler := handler.NewDeploymentHandler(deploymentUC)
 	envVarHandler := handler.NewEnvVarHandler(envVarUC)
