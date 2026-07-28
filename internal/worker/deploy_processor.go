@@ -22,6 +22,7 @@ type DeployProcessor struct {
 	projectRepo    domain.ProjectRepository
 	envVarRepo     domain.EnvVarRepository
 	capacityUC     *usecase.CapacityUseCase
+	maxMemoryMB    int
 }
 
 func NewDeployProcessor(
@@ -30,6 +31,7 @@ func NewDeployProcessor(
 	projectRepo domain.ProjectRepository,
 	envVarRepo domain.EnvVarRepository,
 	capacityUC *usecase.CapacityUseCase,
+	maxMemoryMB int,
 ) *DeployProcessor {
 	return &DeployProcessor{
 		dockerClient:   dockerClient,
@@ -37,6 +39,7 @@ func NewDeployProcessor(
 		projectRepo:    projectRepo,
 		envVarRepo:     envVarRepo,
 		capacityUC:     capacityUC,
+		maxMemoryMB:    maxMemoryMB,
 	}
 }
 
@@ -49,7 +52,7 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	slog.Info("processing deployment", "deployment_id", payload.DeploymentID)
 
 	// Check capacity before starting
-	if err := p.capacityUC.CheckCapacity(ctx, 128); err != nil {
+	if err := p.capacityUC.CheckCapacity(ctx, p.maxMemoryMB); err != nil {
 		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("capacity check failed: %w", err))
 	}
 
@@ -88,8 +91,8 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 
 	slog.Info("image built", "image", imageTag, "output_length", len(buildOutput))
 
-	// Truncate build logs to 100KB
-	truncatedLogs := p.truncateLogs(buildOutput, 100*1024)
+	// Truncate build logs to 100KB / 500 lines
+	truncatedLogs := p.truncateLogs(buildOutput)
 
 	// Update status to running
 	if err := p.deploymentRepo.UpdateStatus(payload.DeploymentID, domain.DeploymentStatusRunning, truncatedLogs); err != nil {
@@ -124,7 +127,7 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 		ProjectID:     payload.ProjectID,
 		ProjectName:   project.Name,
 		Domain:        payload.Domain,
-		MemoryLimitMB: 128,
+		MemoryLimitMB: p.maxMemoryMB,
 		CPULimit:      0.5,
 	})
 	if err != nil {
@@ -194,18 +197,32 @@ func (p *DeployProcessor) failDeployment(ctx context.Context, deploymentID, imag
 	return err
 }
 
-func (p *DeployProcessor) truncateLogs(logs string, maxBytes int) string {
-	if len(logs) <= maxBytes {
-		return logs
+const (
+	maxLogBytes = 100 * 1024 // 100KB
+	maxLogLines = 500
+)
+
+func (p *DeployProcessor) truncateLogs(logs string) string {
+	truncated := logs
+
+	// Enforce 500-line limit first
+	lines := strings.Split(truncated, "\n")
+	if len(lines) > maxLogLines {
+		lines = lines[len(lines)-maxLogLines:]
+		truncated = strings.Join(lines, "\n")
 	}
-	
-	// Keep last portion of logs
-	truncated := logs[len(logs)-maxBytes:]
-	
-	// Find first newline to avoid cutting mid-line
-	if idx := strings.Index(truncated, "\n"); idx != -1 {
-		truncated = truncated[idx+1:]
+
+	// Then enforce 100KB byte limit
+	if len(truncated) > maxLogBytes {
+		truncated = truncated[len(truncated)-maxLogBytes:]
+		// Avoid cutting mid-line
+		if idx := strings.Index(truncated, "\n"); idx != -1 {
+			truncated = truncated[idx+1:]
+		}
 	}
-	
-	return "[LOGS TRUNCATED - showing last " + fmt.Sprintf("%d", maxBytes) + " bytes]\n" + truncated
+
+	if truncated != logs {
+		return fmt.Sprintf("[LOGS TRUNCATED - max %d bytes / %d lines]\n", maxLogBytes, maxLogLines) + truncated
+	}
+	return truncated
 }

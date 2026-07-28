@@ -73,8 +73,8 @@ func Load() (*Config, error) {
 			Default: getEnv("DEFAULT_DOMAIN", "pontoon.example.com"),
 		},
 		Worker: WorkerConfig{
-			MaxContainerMemoryMB:  getEnvInt("MAX_CONTAINER_MEMORY_MB", 128),
-			TotalContainerMemoryMB: getEnvInt("TOTAL_CONTAINER_MEMORY_MB", 700),
+			MaxContainerMemoryMB:  getEnvInt("MAX_CONTAINER_MEMORY_MB", 256),
+			TotalContainerMemoryMB: getEnvInt("TOTAL_CONTAINER_MEMORY_MB", 2048),
 		},
 		Webhook: WebhookConfig{
 			Secret: getEnv("GITHUB_WEBHOOK_SECRET", ""),

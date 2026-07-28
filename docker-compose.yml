@@ -1,82 +1,131 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pontoon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pontoon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pontoon}
+      POSTGRES_DB: ${POSTGRES_DB:-pontoon}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - pontoon-data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pontoon}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pontoon-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    networks:
+      - pontoon-data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   traefik:
     image: traefik:v3.0
+    container_name: pontoon-traefik
+    restart: unless-stopped
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=pontoon-ingress"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik-certificates:/letsencrypt
     networks:
       - pontoon-ingress
-    restart: unless-stopped
 
   cloudflared:
     image: cloudflare/cloudflared:latest
+    container_name: pontoon-cloudflared
+    restart: unless-stopped
     command: tunnel run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - pontoon-ingress
-    restart: unless-stopped
+    profiles: ["tunnel"]
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
       target: api
-    ports:
-      - "8081:8080"
+    container_name: pontoon-api
+    restart: unless-stopped
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-pontoon}:${POSTGRES_PASSWORD:-pontoon}@postgres:5432/${POSTGRES_DB:-pontoon}?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - JWT_SECRET=${JWT_SECRET}
-      - DEFAULT_DOMAIN=${DEFAULT_DOMAIN}
+      - DEFAULT_DOMAIN=${DEFAULT_DOMAIN:-pontoon.example.com}
+      - API_ADDR=:8080
+      - MAX_CONTAINER_MEMORY_MB=${MAX_CONTAINER_MEMORY_MB:-256}
+      - TOTAL_CONTAINER_MEMORY_MB=${TOTAL_CONTAINER_MEMORY_MB:-2048}
     networks:
       - pontoon-ingress
+      - pontoon-data
     depends_on:
-      - traefik
-    restart: unless-stopped
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   worker:
     build:
       context: .
       dockerfile: Dockerfile
       target: worker
+    container_name: pontoon-worker
+    restart: unless-stopped
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - DEFAULT_DOMAIN=${DEFAULT_DOMAIN}
-      - MAX_CONTAINER_MEMORY_MB=${MAX_CONTAINER_MEMORY_MB:-128}
-      - TOTAL_CONTAINER_MEMORY_MB=${TOTAL_CONTAINER_MEMORY_MB:-700}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-pontoon}:${POSTGRES_PASSWORD:-pontoon}@postgres:5432/${POSTGRES_DB:-pontoon}?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - DEFAULT_DOMAIN=${DEFAULT_DOMAIN:-pontoon.example.com}
+      - MAX_CONTAINER_MEMORY_MB=${MAX_CONTAINER_MEMORY_MB:-256}
+      - TOTAL_CONTAINER_MEMORY_MB=${TOTAL_CONTAINER_MEMORY_MB:-2048}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - pontoon-ingress
+      - pontoon-data
     depends_on:
-      - traefik
-    restart: unless-stopped
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 networks:
   pontoon-ingress:
     external: true
+  pontoon-data:
+    driver: bridge
 
 volumes:
+  postgres-data:
+  redis-data:
   traefik-certificates:

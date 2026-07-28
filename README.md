@@ -14,34 +14,50 @@ A lightweight, event-driven Platform-as-a-Service (PaaS) engine built in Go. Pon
 
 ## Architecture
 
+Pontoon is a **100% self-hosted, sovereign PaaS**. No external data
+dependencies — PostgreSQL and Redis run inside the same Docker Compose
+stack as the API and Worker.
+
 ```
-┌─────────────────────────────────────────────────┐
-│         Cloudflare (DNS + Tunnel + WAF)         │
-└──────────────────────┬──────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────┐
-│  Traefik (dynamic routing, TLS, rate limiting)  │
-└────┬──────────────┬──────────────┬──────────────┘
-     │              │              │
-┌────▼────┐  ┌─────▼─────┐  ┌────▼────────────┐
-│ Go API  │  │ Go Worker │  │ User Containers │
-│ (Chi)   │  │ (Asynq)   │  │ (isolated,      │
-│         │  │           │  │  resource-limited)│
-└────┬────┘  └─────┬─────┘  └─────────────────┘
-     │              │
-┌────▼──────────────▼─────┐
-│ Postgres (Neon)         │
-│ Redis (Upstash)         │
-└─────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│              Your Server (AWS EC2 / home lab / VM)    │
+│                                                       │
+│  docker compose up                                    │
+│  ┌──────────────────────────────────────────────┐    │
+│  │  pontoon-ingress network (shared w/ Traefik) │    │
+│  │  ┌───────────┐  ┌──────────┐  ┌───────────┐  │    │
+│  │  │ Traefik   │  │ cloudflared│ │ (optional)│  │    │
+│  │  │ (routing) │  │ (tunnel)  │  └───────────┘  │    │
+│  │  └─────┬─────┘  └─────┬────┘                  │    │
+│  │        │              │                        │    │
+│  │  ┌─────▼─────────────▼────────────────────┐   │    │
+│  │  │  pontoon-api  ◄────────────────────────┼── │    │
+│  │  │  pontoon-worker ◄── /var/run/docker.sock│─ │    │
+│  │  │             │                            │  │    │
+│  │  │             ▼  spawns user containers    │  │    │
+│  │  └─────────────┬───────────────────────────┘  │    │
+│  │                │  pontoon-<tenant> networks   │    │
+│  │   ┌────────────▼───────────────────────────┐  │    │
+│  │   │   User Containers (isolated, capped)   │  │    │
+│  │   └────────────────────────────────────────┘  │    │
+│  └──────────────────────────────────────────────┘    │
+│                                                       │
+│  pontoon-data network (internal, isolated)            │
+│  ┌──────────────┐    ┌──────────────┐                 │
+│  │  PostgreSQL  │    │    Redis     │                 │
+│  │  (state)     │    │  (queue/pubsub)                 │
+│  └──────────────┘    └──────────────┘                 │
+└──────────────────────────────────────────────────────┘
+                         │
+                    Internet / GitHub
 ```
 
 ## Prerequisites
 
-- Go 1.23+
+- A capable server (any VM, EC2, or home lab machine; 2GB+ RAM recommended)
 - Docker & Docker Compose
-- GitHub OAuth App
-- PostgreSQL (or use Neon for free tier)
-- Redis (or use Upstash for free tier)
+- Go 1.23+ (only for local `go run` development)
+- A GitHub OAuth App (https://github.com/settings/developers)
 
 ## Quick Start
 
@@ -69,29 +85,38 @@ JWT_SECRET=$(openssl rand -hex 32)
 DEFAULT_DOMAIN=pontoon.yourdomain.com
 ```
 
-### 3. Local Development
+### 3. Deploy (self-hosted, single command)
+
+The `pontoon-ingress` network must exist before `docker compose up` so
+Traefik and the worker-spawned user containers share it. Create it once:
 
 ```bash
-# Start all services (Postgres, Redis, Traefik, API, Worker)
-make dev-local
-
-# Or run services individually:
-make run-api      # API server on :8080
-make run-worker   # Background worker
+docker network create pontoon-ingress
 ```
 
-### 4. Production Deployment
+Then boot the entire stack — Postgres, Redis, Traefik, API, Worker:
 
 ```bash
-# Build and start with Docker Compose
-make docker-build
-make docker-up
+docker compose up -d --build
+```
 
-# View logs
-make docker-logs
+Optional: enable the Cloudflare tunnel (zero-trust ingress, no exposed ports):
 
-# Stop services
-make docker-down
+```bash
+# set CLOUDFLARE_TUNNEL_TOKEN in .env, then:
+docker compose --profile tunnel up -d
+```
+
+### 4. Local Development (without Docker for the Go binaries)
+
+For iterating on Go code directly on your host, only stand up the data
+services and run the binaries with `go run`:
+
+```bash
+docker compose -f docker-compose.test.yml up -d   # Postgres + Redis only
+make migrate                                       # apply schema
+make run-api                                       # API on :8080
+make run-worker                                     # background worker
 ```
 
 ## API Endpoints
@@ -136,43 +161,52 @@ make lint
 make build
 ```
 
-## Deployment Targets
+## Deployment
 
-### GCP Free Tier (e2-micro)
+Pontoon runs anywhere Docker does. Recommended: a 2GB+ RAM VM
+(AWS EC2 t3.small, Hetzner CX22, or a home-lab machine).
 
-1. Create VM instance (e2-micro, 1GB RAM)
-2. Install Docker
-3. Setup Cloudflare Tunnel
-4. Configure Neon PostgreSQL
-5. Configure Upstash Redis
-6. Deploy with docker-compose
+1. Install Docker + Docker Compose on the host
+2. `git clone` this repo and `cp .env.example .env`
+3. Fill in GitHub OAuth credentials and `DEFAULT_DOMAIN`
+4. Create the shared ingress network once:
+   ```bash
+   docker network create pontoon-ingress
+   ```
+5. Boot the full stack:
+   ```bash
+   docker compose up -d --build
+   ```
+6. (Optional) Point a Cloudflare Tunnel at the host and enable the
+   `tunnel` profile to avoid exposing any public ports.
 
-### Memory Budget (1GB VM)
+### Container Memory Budget
 
-| Component | RAM |
-|-----------|-----|
-| OS + kernel | ~150MB |
-| Go API | ~40MB |
-| Go Worker | ~40MB |
-| Traefik | ~40MB |
-| User containers | ~770MB |
-| **Per container limit** | **128MB** |
+Pontoon no longer targets memory-starved free tiers. Defaults are tuned
+for capable servers and are fully configurable via environment:
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `MAX_CONTAINER_MEMORY_MB` | 256 | Hard cap per deployed user container |
+| `TOTAL_CONTAINER_MEMORY_MB` | 2048 | Cluster-wide budget enforced before new builds |
 
 ## Configuration
 
-### Environment Variables
+All data services are self-hosted in `docker-compose.yml`. Only secrets
+and identity need to be set in `.env` (see `.env.example`).
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `REDIS_URL` | Redis connection string | Yes |
 | `GITHUB_CLIENT_ID` | GitHub OAuth client ID | Yes |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | Yes |
 | `JWT_SECRET` | Secret for JWT signing | Yes |
 | `DEFAULT_DOMAIN` | Base domain for deployments | Yes |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Self-hosted PG creds | No (defaults: pontoon) |
 | `API_ADDR` | API server address | No (default: :8080) |
-| `MAX_CONTAINER_MEMORY_MB` | Memory limit per container | No (default: 128) |
-| `TOTAL_CONTAINER_MEMORY_MB` | Total memory budget | No (default: 700) |
+| `MAX_CONTAINER_MEMORY_MB` | Memory limit per container | No (default: 256) |
+| `TOTAL_CONTAINER_MEMORY_MB` | Total memory budget | No (default: 2048) |
+| `ACME_EMAIL` | Let's Encrypt email | No |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Cloudflare tunnel token | No (tunnel profile) |
 
 ## Security
 

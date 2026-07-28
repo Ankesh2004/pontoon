@@ -1,4 +1,4 @@
-.PHONY: build run-api run-worker migrate test lint clean dev dev-local docker-build docker-up docker-down
+.PHONY: build run-api run-worker migrate test lint clean deps fmt vet dev data-stack docker-up docker-down docker-logs docker-restart
 
 # Build binaries
 build:
@@ -7,11 +7,11 @@ build:
 	@echo "Building Worker..."
 	@go build -o bin/worker ./cmd/worker
 
-# Run API server
+# Run API server (needs data-stack running)
 run-api:
 	@go run ./cmd/api
 
-# Run Worker
+# Run Worker (needs data-stack running)
 run-worker:
 	@go run ./cmd/worker
 
@@ -44,23 +44,20 @@ fmt:
 vet:
 	@go vet ./...
 
-# Development with Docker Compose (local)
-dev-local:
-	@docker compose -f docker-compose.local.yml up --build
+# Data services only (Postgres + Redis on host ports) for local `go run` dev
+data-stack:
+	@docker compose -f docker-compose.test.yml up -d
 
-# Development with Docker Compose (production-like)
+# Full self-hosted stack (Postgres, Redis, Traefik, API, Worker)
+# Requires: docker network create pontoon-ingress
 dev:
 	@docker compose up --build
 
-# Build Docker images
-docker-build:
-	@docker compose build
-
-# Start Docker Compose
+# Start full stack in background
 docker-up:
-	@docker compose up -d
+	@docker compose up -d --build
 
-# Stop Docker Compose
+# Stop full stack
 docker-down:
 	@docker compose down
 

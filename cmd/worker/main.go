@@ -84,6 +84,7 @@ func run(ctx context.Context) error {
 		projectRepo,
 		envVarRepo,
 		capacityUC,
+		cfg.Worker.MaxContainerMemoryMB,
 	)
 
 	processor, err := worker.NewProcessor(cfg.Redis.URL, 2, deployProcessor)
