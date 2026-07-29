@@ -132,3 +132,33 @@ func (h *DeploymentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(deployment)
 }
+
+func (h *DeploymentHandler) Stop(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	deploymentID := chi.URLParam(r, "deploymentId")
+	if deploymentID == "" {
+		http.Error(w, "deployment id required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.deploymentUC.StopDeployment(r.Context(), userID, deploymentID); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, "deployment not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"stopped"}`))
+}

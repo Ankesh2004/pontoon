@@ -25,6 +25,7 @@ export const deploymentsApi = {
     api.post<Deployment>(`/api/v1/projects/${projectId}/deploy`, {
       commit_sha: commitSha,
     }),
+  stop: (id: string) => api.post<{ status: string }>(`/api/v1/deployments/${id}/stop`),
 };
 
 export const envVarsApi = {

@@ -8,6 +8,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/Ankesh2004/pontoon/internal/domain"
+	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 	"github.com/Ankesh2004/pontoon/internal/tasks"
 )
 
@@ -15,17 +16,20 @@ type DeploymentUseCase struct {
 	deploymentRepo domain.DeploymentRepository
 	projectRepo    domain.ProjectRepository
 	asynqClient    *asynq.Client
+	dockerClient   *docker.Client
 }
 
 func NewDeploymentUseCase(
 	deploymentRepo domain.DeploymentRepository,
 	projectRepo domain.ProjectRepository,
 	asynqClient *asynq.Client,
+	dockerClient *docker.Client,
 ) *DeploymentUseCase {
 	return &DeploymentUseCase{
 		deploymentRepo: deploymentRepo,
 		projectRepo:    projectRepo,
 		asynqClient:    asynqClient,
+		dockerClient:   dockerClient,
 	}
 }
 
@@ -104,4 +108,30 @@ func (uc *DeploymentUseCase) ListDeployments(ctx context.Context, userID, projec
 	}
 
 	return uc.deploymentRepo.GetByProjectID(projectID)
+}
+
+func (uc *DeploymentUseCase) StopDeployment(ctx context.Context, userID, deploymentID string) error {
+	deployment, err := uc.deploymentRepo.GetByID(deploymentID)
+	if err != nil {
+		return err
+	}
+
+	if deployment.UserID != userID {
+		return domain.ErrForbidden
+	}
+
+	if deployment.ContainerID != "" {
+		if err := uc.dockerClient.StopContainer(ctx, deployment.ContainerID); err != nil {
+			return fmt.Errorf("failed to stop container: %w", err)
+		}
+		if err := uc.dockerClient.RemoveContainer(ctx, deployment.ContainerID); err != nil {
+			return fmt.Errorf("failed to remove container: %w", err)
+		}
+	}
+
+	if err := uc.deploymentRepo.UpdateStatus(deploymentID, domain.DeploymentStatusStopped, deployment.BuildLogs); err != nil {
+		return fmt.Errorf("failed to update deployment status: %w", err)
+	}
+
+	return nil
 }

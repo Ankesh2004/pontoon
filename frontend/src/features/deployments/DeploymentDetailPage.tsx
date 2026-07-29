@@ -1,10 +1,10 @@
 import { useParams } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deploymentsApi, projectsApi } from '../../api/endpoints';
 import { useState, useCallback } from 'react';
 import { LogTerminal } from '../logs/LogTerminal';
 import { LogStreamer } from '../logs/LogStreamer';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Square } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 
 export function DeploymentDetailPage() {
@@ -12,6 +12,7 @@ export function DeploymentDetailPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<string>('connecting');
+  const queryClient = useQueryClient();
 
   const { data: deployment, isLoading } = useQuery({
     queryKey: ['deployment', deploymentId],
@@ -27,6 +28,13 @@ export function DeploymentDetailPage() {
     queryKey: ['project', deployment?.project_id],
     queryFn: () => projectsApi.get(deployment!.project_id),
     enabled: !!deployment?.project_id,
+  });
+
+  const stopMutation = useMutation({
+    mutationFn: () => deploymentsApi.stop(deploymentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deployment', deploymentId] });
+    },
   });
 
   const handleLog = useCallback((line: string) => {
@@ -93,15 +101,25 @@ export function DeploymentDetailPage() {
           </div>
         </div>
         {deployment.status === 'live' && deploymentUrl && (
-          <a
-            href={deploymentUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Open App
-            <ExternalLink className="h-4 w-4" />
-          </a>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => stopMutation.mutate()}
+              disabled={stopMutation.isPending}
+              className="flex items-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+            >
+              <Square className="h-4 w-4" />
+              {stopMutation.isPending ? 'Stopping...' : 'Stop'}
+            </button>
+            <a
+              href={deploymentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Open App
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          </div>
         )}
       </div>
 
