@@ -129,8 +129,8 @@ func (uc *DeploymentUseCase) StopDeployment(ctx context.Context, userID, deploym
 		}
 	}
 
-	if err := uc.deploymentRepo.UpdateStatus(deploymentID, domain.DeploymentStatusStopped, deployment.BuildLogs); err != nil {
-		return fmt.Errorf("failed to update deployment status: %w", err)
+	if err := uc.deploymentRepo.Delete(deploymentID); err != nil {
+		return fmt.Errorf("failed to delete deployment: %w", err)
 	}
 
 	return nil

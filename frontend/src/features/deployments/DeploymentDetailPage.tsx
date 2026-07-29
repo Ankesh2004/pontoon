@@ -1,4 +1,4 @@
-import { useParams } from '@tanstack/react-router';
+import { useParams, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deploymentsApi, projectsApi } from '../../api/endpoints';
 import { useState, useCallback } from 'react';
@@ -13,6 +13,7 @@ export function DeploymentDetailPage() {
   const [autoScroll, setAutoScroll] = useState(true);
   const [connectionStatus, setConnectionStatus] = useState<string>('connecting');
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: deployment, isLoading } = useQuery({
     queryKey: ['deployment', deploymentId],
@@ -33,7 +34,8 @@ export function DeploymentDetailPage() {
   const stopMutation = useMutation({
     mutationFn: () => deploymentsApi.stop(deploymentId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deployment', deploymentId] });
+      queryClient.invalidateQueries({ queryKey: ['deployments', deployment?.project_id] });
+      navigate({ to: '/projects/$projectId', params: { projectId: deployment!.project_id } });
     },
   });
 

@@ -124,3 +124,10 @@ func (r *DeploymentRepo) UpdateStatus(id string, status domain.DeploymentStatus,
 	_, err := r.pool.Exec(context.Background(), query, id, status, logs)
 	return err
 }
+
+func (r *DeploymentRepo) Delete(id string) error {
+	query := `DELETE FROM deployments WHERE id = $1`
+	_, err := r.pool.Exec(context.Background(), query, id)
+	return err
+}
+

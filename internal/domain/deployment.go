@@ -37,6 +37,7 @@ type DeploymentRepository interface {
 	GetByUserID(userID string) ([]*Deployment, error)
 	Update(deployment *Deployment) error
 	UpdateStatus(id string, status DeploymentStatus, logs string) error
+	Delete(id string) error
 }
 
 type EnvVar struct {
