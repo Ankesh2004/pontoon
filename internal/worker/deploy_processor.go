@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hibiken/asynq"
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/Ankesh2004/pontoon/internal/domain"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 	"github.com/Ankesh2004/pontoon/internal/tasks"
@@ -23,6 +24,7 @@ type DeployProcessor struct {
 	envVarRepo     domain.EnvVarRepository
 	capacityUC     *usecase.CapacityUseCase
 	maxMemoryMB    int
+	redisClient    *goredis.Client
 }
 
 func NewDeployProcessor(
@@ -32,6 +34,7 @@ func NewDeployProcessor(
 	envVarRepo domain.EnvVarRepository,
 	capacityUC *usecase.CapacityUseCase,
 	maxMemoryMB int,
+	redisClient *goredis.Client,
 ) *DeployProcessor {
 	return &DeployProcessor{
 		dockerClient:   dockerClient,
@@ -40,6 +43,7 @@ func NewDeployProcessor(
 		envVarRepo:     envVarRepo,
 		capacityUC:     capacityUC,
 		maxMemoryMB:    maxMemoryMB,
+		redisClient:    redisClient,
 	}
 }
 
@@ -82,8 +86,10 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	// Build Docker image
 	imageTag := fmt.Sprintf("pontoon/%s:%s", payload.ProjectID, payload.DeploymentID)
 	buildOutput, err := p.dockerClient.BuildImage(ctx, docker.BuildConfig{
-		WorkDir:  repoDir,
-		ImageTag: imageTag,
+		WorkDir:      repoDir,
+		ImageTag:     imageTag,
+		DeploymentID: payload.DeploymentID,
+		RedisClient:  p.redisClient,
 	})
 	if err != nil {
 		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to build image: %w", err))

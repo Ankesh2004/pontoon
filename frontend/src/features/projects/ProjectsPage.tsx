@@ -11,7 +11,9 @@ function deploymentUrl(domain: string) {
     return domain;
   }
 
-  return `https://${domain}`;
+  // no TLS on localhost, just use plain HTTP
+  const protocol = domain.includes('localhost') ? 'http' : 'https';
+  return `${protocol}://${domain}`;
 }
 
 function ProjectCard({ project }: { project: Project }) {

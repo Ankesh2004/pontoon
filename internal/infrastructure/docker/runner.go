@@ -34,7 +34,7 @@ func (c *Client) RunContainer(ctx context.Context, cfg RunConfig) (string, error
 		cfg.ProjectID,
 		cfg.ProjectName,
 		cfg.Domain,
-		"8080",
+		"80", // most containers (nginx etc) expose 80, not 8080
 	)
 
 	hostConfig := &container.HostConfig{
@@ -43,7 +43,20 @@ func (c *Client) RunContainer(ctx context.Context, cfg RunConfig) (string, error
 			NanoCPUs:   int64(cfg.CPULimit * 1e9),
 		},
 		SecurityOpt: []string{"no-new-privileges:true"},
-		CapDrop:     []string{"ALL"},
+		CapDrop: []string{
+			"SYS_ADMIN",
+			"SYS_PTRACE",
+			"SYS_RAWIO",
+			"SYS_MODULE",
+			"SYS_BOOT",
+			"SYS_TIME",
+			"NET_ADMIN",
+			"NET_RAW",
+			"MKNOD",
+			"AUDIT_WRITE",
+			"MAC_ADMIN",
+			"MAC_OVERRIDE",
+		},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeTmpfs,
@@ -63,7 +76,7 @@ func (c *Client) RunContainer(ctx context.Context, cfg RunConfig) (string, error
 		Env:    env,
 		Labels: labels,
 		ExposedPorts: map[nat.Port]struct{}{
-			"8080/tcp": {},
+			"80/tcp": {},
 		},
 	}
 

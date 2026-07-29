@@ -13,6 +13,7 @@ import (
 	"github.com/Ankesh2004/pontoon/internal/config"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/postgres"
+	"github.com/Ankesh2004/pontoon/internal/infrastructure/redis"
 	"github.com/Ankesh2004/pontoon/internal/usecase"
 	"github.com/Ankesh2004/pontoon/internal/worker"
 )
@@ -72,6 +73,14 @@ func run(ctx context.Context) error {
 	projectRepo := postgres.NewProjectRepo(pool)
 	envVarRepo := postgres.NewEnvVarRepo(pool)
 
+	redisClient, err := redis.NewRedisClient(cfg.Redis.URL)
+	if err != nil {
+		return err
+	}
+	defer redisClient.Close()
+
+	slog.Info("redis connection established")
+
 	capacityUC := usecase.NewCapacityUseCase(
 		dockerClient,
 		cfg.Worker.MaxContainerMemoryMB,
@@ -85,6 +94,7 @@ func run(ctx context.Context) error {
 		envVarRepo,
 		capacityUC,
 		cfg.Worker.MaxContainerMemoryMB,
+		redisClient,
 	)
 
 	processor, err := worker.NewProcessor(cfg.Redis.URL, 2, deployProcessor)

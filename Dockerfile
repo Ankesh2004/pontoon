@@ -1,5 +1,5 @@
-# Build stage
-FROM golang:1.23-alpine AS builder
+# Build stage — needs to match the go version in go.mod
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git
 
@@ -24,6 +24,8 @@ RUN apk add --no-cache ca-certificates git
 
 WORKDIR /app
 COPY --from=api-builder /api .
+# the app runs migrations on startup, so it needs the sql files
+COPY --from=api-builder /app/migrations ./migrations
 
 EXPOSE 8080
 CMD ["./api"]
@@ -34,5 +36,7 @@ RUN apk add --no-cache ca-certificates git docker-cli
 
 WORKDIR /app
 COPY --from=worker-builder /worker .
+# worker also runs migrations on startup
+COPY --from=worker-builder /app/migrations ./migrations
 
 CMD ["./worker"]

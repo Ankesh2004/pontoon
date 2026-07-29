@@ -59,10 +59,12 @@ export function DeploymentDetailPage() {
     return ['pending', 'cloning', 'building', 'running'].includes(status);
   };
 
+  // no TLS on localhost, just use plain HTTP
+  const protocol = project?.domain?.includes('localhost') ? 'http' : 'https';
   const deploymentUrl = project?.domain.startsWith('http://') || project?.domain.startsWith('https://')
     ? project.domain
     : project?.domain
-    ? `https://${project.domain}`
+    ? `${protocol}://${project.domain}`
     : undefined;
 
   return (
