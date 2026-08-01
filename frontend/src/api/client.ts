@@ -1,3 +1,5 @@
+import { toast } from 'sonner';
+
 const API_BASE = '';
 
 let csrfToken = '';
@@ -34,6 +36,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       await new Promise(() => {});
     }
     const error = await response.text();
+    toast.error(`Error: ${response.status}`, { description: error || 'An unexpected error occurred.' });
     throw new Error(error || `HTTP ${response.status}`);
   }
 
@@ -57,6 +60,7 @@ export const api = {
         await new Promise(() => {});
       }
       const error = await response.text();
+      toast.error(`Error: ${response.status}`, { description: error || 'An unexpected error occurred.' });
       throw new Error(error || `HTTP ${response.status}`);
     }
     return response.text();

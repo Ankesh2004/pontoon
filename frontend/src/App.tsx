@@ -4,6 +4,7 @@ import { ThemeProvider } from './components/theme/ThemeProvider';
 import { Layout } from './components/layout/Layout';
 import { AuthGuard } from './components/layout/AuthGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Toaster } from 'sonner';
 import { LoginPage } from './features/auth/LoginPage';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { ProjectsPage } from './features/projects/ProjectsPage';
@@ -137,6 +138,7 @@ export function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
+        <Toaster richColors position="top-right" />
       </QueryClientProvider>
     </ThemeProvider>
   );
