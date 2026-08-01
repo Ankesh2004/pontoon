@@ -28,6 +28,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (!response.ok) {
+    if (response.status === 401 && window.location.pathname !== '/login') {
+      window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+      // Halt execution so no errors are thrown while the page unloads
+      await new Promise(() => {});
+    }
     const error = await response.text();
     throw new Error(error || `HTTP ${response.status}`);
   }
@@ -47,6 +52,10 @@ export const api = {
       headers: { 'X-CSRF-Token': csrfToken },
     });
     if (!response.ok) {
+      if (response.status === 401 && window.location.pathname !== '/login') {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+        await new Promise(() => {});
+      }
       const error = await response.text();
       throw new Error(error || `HTTP ${response.status}`);
     }
