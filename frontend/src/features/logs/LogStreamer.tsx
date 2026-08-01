@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { authApi } from '../../api/endpoints';
 import type { LogMessage } from '../../types';
 
@@ -14,38 +14,57 @@ function websocketUrl(deploymentId: string, ticket: string) {
 }
 
 export function LogStreamer({ deploymentId, onLog, onStatusChange }: LogStreamerProps) {
+  // keep stable refs to callbacks so useEffect doesn't re-fire on each render
+  const onLogRef = useRef(onLog);
+  const onStatusRef = useRef(onStatusChange);
+  useEffect(() => { onLogRef.current = onLog; }, [onLog]);
+  useEffect(() => { onStatusRef.current = onStatusChange; }, [onStatusChange]);
+
   useEffect(() => {
     let socket: WebSocket | undefined;
     let cancelled = false;
 
-    onStatusChange('connecting');
+    onStatusRef.current('connecting');
 
-    authApi.wsTicket()
-      .then(({ ticket }) => {
-        if (cancelled) {
-          return;
-        }
+    // small delay to let React StrictMode's unmount/remount cycle settle
+    // before we consume the one-time ws ticket from Redis
+    const timer = setTimeout(() => {
+      if (cancelled) return;
 
-        socket = new WebSocket(websocketUrl(deploymentId, ticket));
+      authApi.wsTicket()
+        .then(({ ticket }) => {
+          if (cancelled) return;
 
-        socket.onopen = () => onStatusChange('connected');
-        socket.onmessage = (event) => {
-          const message = JSON.parse(event.data) as LogMessage;
-          onLog(message.line);
-        };
-        socket.onerror = () => onStatusChange('error');
-        socket.onclose = () => onStatusChange('closed');
-      })
-      .catch((error: Error) => {
-        onStatusChange('error');
-        onLog(`Failed to connect to log stream: ${error.message}`);
-      });
+          const url = websocketUrl(deploymentId, ticket);
+          socket = new WebSocket(url);
+
+          socket.onopen = () => onStatusRef.current('connected');
+
+          socket.onmessage = (event) => {
+            try {
+              const message = JSON.parse(event.data) as LogMessage;
+              onLogRef.current(message.line);
+            } catch {
+              // ignore malformed frames
+            }
+          };
+
+          socket.onerror = () => onStatusRef.current('error');
+          socket.onclose = () => onStatusRef.current('closed');
+        })
+        .catch((error: Error) => {
+          if (cancelled) return;
+          onStatusRef.current('error');
+          onLogRef.current(`Failed to connect to log stream: ${error.message}`);
+        });
+    }, 100); // 100 ms debounce beats StrictMode double-invoke
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
       socket?.close();
     };
-  }, [deploymentId, onLog, onStatusChange]);
+  }, [deploymentId]); // only re-run when the deployment actually changes
 
   return null;
 }

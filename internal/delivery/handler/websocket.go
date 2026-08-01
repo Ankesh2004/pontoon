@@ -81,6 +81,15 @@ func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	if isTerminalStatus(deployment.Status) {
+		// replay any stored logs first so the user sees the full build output
+		histKey := fmt.Sprintf("deployment:%s:log_history", deploymentID)
+		history, _ := h.redisClient.LRange(r.Context(), histKey, 0, -1).Result()
+		for _, raw := range history {
+			var logMsg infraredis.LogMessage
+			if err := json.Unmarshal([]byte(raw), &logMsg); err == nil {
+				conn.WriteJSON(logMsg)
+			}
+		}
 		finalMsg := infraredis.LogMessage{
 			DeploymentID: deploymentID,
 			Line:         fmt.Sprintf("[DEPLOYMENT %s]", strings.ToUpper(string(deployment.Status))),
@@ -93,6 +102,16 @@ func (h *WebSocketHandler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 	channel := fmt.Sprintf("deployment:%s:logs", deploymentID)
 	pubsub := h.redisClient.Subscribe(r.Context(), channel)
 	defer pubsub.Close()
+
+	// Replay history BEFORE consuming live messages so nothing is missed
+	histKey := fmt.Sprintf("deployment:%s:log_history", deploymentID)
+	history, _ := h.redisClient.LRange(r.Context(), histKey, 0, -1).Result()
+	for _, raw := range history {
+		var logMsg infraredis.LogMessage
+		if err := json.Unmarshal([]byte(raw), &logMsg); err == nil {
+			conn.WriteJSON(logMsg)
+		}
+	}
 
 	ch := pubsub.Channel()
 

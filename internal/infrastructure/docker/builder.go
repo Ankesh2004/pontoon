@@ -67,11 +67,11 @@ func (c *Client) BuildImage(ctx context.Context, cfg BuildConfig) (string, error
 					// Remove trailing newline for cleaner output
 					streamLine := strings.TrimSuffix(buildOutput.Stream, "\n")
 					if streamLine != "" {
-						publishLog(ctx, cfg.RedisClient, cfg.DeploymentID, streamLine)
+						PublishLog(ctx, cfg.RedisClient, cfg.DeploymentID, streamLine)
 					}
 				}
 				if buildOutput.Error != "" {
-					publishLog(ctx, cfg.RedisClient, cfg.DeploymentID, "ERROR: "+buildOutput.Error)
+					PublishLog(ctx, cfg.RedisClient, cfg.DeploymentID, "ERROR: "+buildOutput.Error)
 				}
 			}
 		}
@@ -84,16 +84,21 @@ func (c *Client) BuildImage(ctx context.Context, cfg BuildConfig) (string, error
 	return logs.String(), nil
 }
 
-func publishLog(ctx context.Context, redisClient *goredis.Client, deploymentID, line string) {
+func PublishLog(ctx context.Context, redisClient *goredis.Client, deploymentID, line string) {
 	channel := fmt.Sprintf("deployment:%s:logs", deploymentID)
+	histKey  := fmt.Sprintf("deployment:%s:log_history", deploymentID)
 	message := map[string]interface{}{
 		"deployment_id": deploymentID,
 		"line":          line,
 		"timestamp":     time.Now().Unix(),
 	}
-	
+
 	if data, err := json.Marshal(message); err == nil {
+		// fire-and-forget pub/sub for live clients
 		redisClient.Publish(ctx, channel, data)
+		// also persist to a list so late joiners can replay
+		redisClient.RPush(ctx, histKey, data)
+		redisClient.Expire(ctx, histKey, time.Hour)
 	}
 }
 

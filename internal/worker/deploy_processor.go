@@ -65,6 +65,10 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 		return fmt.Errorf("failed to update status: %w", err)
 	}
 
+	docker.PublishLog(ctx, p.redisClient, payload.DeploymentID, "==> Cloning repository...")
+	docker.PublishLog(ctx, p.redisClient, payload.DeploymentID, "    Repo: "+payload.RepoURL)
+	docker.PublishLog(ctx, p.redisClient, payload.DeploymentID, "    Branch: "+payload.Branch)
+
 	// Create temp directory for clone
 	tmpDir, err := os.MkdirTemp("", "pontoon-build-*")
 	if err != nil {
@@ -77,11 +81,13 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	if err := p.cloneRepo(ctx, payload.RepoURL, payload.Branch, repoDir); err != nil {
 		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("failed to clone repo: %w", err))
 	}
+	docker.PublishLog(ctx, p.redisClient, payload.DeploymentID, "==> Clone complete.")
 
 	// Update status to building
 	if err := p.deploymentRepo.UpdateStatus(payload.DeploymentID, domain.DeploymentStatusBuilding, ""); err != nil {
 		return fmt.Errorf("failed to update status: %w", err)
 	}
+	docker.PublishLog(ctx, p.redisClient, payload.DeploymentID, "==> Building Docker image...")
 
 	// Build Docker image
 	imageTag := fmt.Sprintf("pontoon/%s:%s", payload.ProjectID, payload.DeploymentID)

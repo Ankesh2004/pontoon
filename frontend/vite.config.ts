@@ -8,8 +8,13 @@ export default defineConfig({
   server: {
     proxy: {
       '/auth': 'http://localhost:8080',
-      '/api': 'http://localhost:8080',
       '/webhooks': 'http://localhost:8080',
+      '/api/v1/deployments': {
+        target: 'http://localhost:8080',
+        ws: true,
+        changeOrigin: true,
+      },
+      '/api': 'http://localhost:8080',
     },
   },
 })
