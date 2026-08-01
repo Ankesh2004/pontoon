@@ -21,8 +21,7 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { key: string; value: string }) =>
-      envVarsApi.create(projectId, data),
+    mutationFn: (data: { key: string; value: string }) => envVarsApi.create(projectId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['envVars', projectId] });
       setNewKey('');
@@ -56,12 +55,10 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-foreground">
-          Environment Variables
-        </h3>
+        <h3 className="text-foreground text-lg font-semibold">Environment Variables</h3>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium"
         >
           <Plus className="h-4 w-4" />
           Add Variable
@@ -69,32 +66,25 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
       </div>
 
       {showAddForm && (
-        <form
-          onSubmit={handleAdd}
-          className="rounded-lg border border-border bg-card p-4"
-        >
+        <form onSubmit={handleAdd} className="border-border bg-card rounded-lg border p-4">
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">
-                Key
-              </label>
+              <label className="text-foreground mb-1 block text-sm font-medium">Key</label>
               <input
                 type="text"
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value.toUpperCase())}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary w-full rounded-md border px-3 py-2 font-mono text-sm focus:ring-1 focus:outline-none"
                 placeholder="DATABASE_URL"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-foreground">
-                Value
-              </label>
+              <label className="text-foreground mb-1 block text-sm font-medium">Value</label>
               <input
                 type="text"
                 value={newValue}
                 onChange={(e) => setNewValue(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary w-full rounded-md border px-3 py-2 font-mono text-sm focus:ring-1 focus:outline-none"
                 placeholder="postgres://..."
               />
             </div>
@@ -103,7 +93,7 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-1.5 text-sm font-medium disabled:opacity-50"
             >
               {createMutation.isPending ? 'Adding...' : 'Add'}
             </button>
@@ -114,7 +104,7 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
                 setNewKey('');
                 setNewValue('');
               }}
-              className="rounded-md border border-border px-4 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+              className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-1.5 text-sm font-medium"
             >
               Cancel
             </button>
@@ -127,17 +117,13 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
           {envVars.map((envVar: EnvVar) => (
             <div
               key={envVar.id}
-              className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
+              className="border-border bg-card flex items-center gap-3 rounded-lg border p-3"
             >
               <div className="flex-1 font-mono text-sm">
-                <span className="font-semibold text-foreground">
-                  {envVar.key}
-                </span>
-                <span className="mx-2 text-muted-foreground">=</span>
+                <span className="text-foreground font-semibold">{envVar.key}</span>
+                <span className="text-muted-foreground mx-2">=</span>
                 <span className="text-muted-foreground">
-                  {showValues[envVar.id]
-                    ? envVar.value
-                    : '••••••••••••••••'}
+                  {showValues[envVar.id] ? envVar.value : '••••••••••••••••'}
                 </span>
               </div>
               <button
@@ -163,10 +149,8 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            No environment variables configured
-          </p>
+        <div className="border-border rounded-lg border border-dashed p-8 text-center">
+          <p className="text-muted-foreground text-sm">No environment variables configured</p>
         </div>
       )}
     </div>

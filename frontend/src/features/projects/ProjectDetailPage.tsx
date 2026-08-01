@@ -10,7 +10,11 @@ export function ProjectDetailPage() {
   const navigate = useNavigate();
   const [deployError, setDeployError] = useState<string | null>(null);
 
-  const { data: project, isLoading, error } = useQuery({
+  const {
+    data: project,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['project', projectId],
     queryFn: () => projectsApi.get(projectId),
     enabled: !!projectId,
@@ -43,13 +47,13 @@ export function ProjectDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">{project.name}</h1>
-          <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
+          <h1 className="text-foreground text-3xl font-bold">{project.name}</h1>
+          <div className="text-muted-foreground mt-2 flex items-center gap-4 text-sm">
             <a
               href={project.repo_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-foreground"
+              className="hover:text-foreground flex items-center gap-1"
             >
               {project.repo_owner}/{project.repo_name}
               <ExternalLink className="h-3 w-3" />
@@ -63,7 +67,7 @@ export function ProjectDetailPage() {
         <button
           onClick={handleDeploy}
           disabled={deployMutation.isPending}
-          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
           {deployMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {deployMutation.isPending ? 'Deploying...' : 'Deploy Now'}
@@ -71,33 +75,27 @@ export function ProjectDetailPage() {
       </div>
 
       {deployError && (
-        <div className="rounded-md bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive">
+        <div className="bg-destructive/10 border-destructive/20 text-destructive rounded-md border p-4 text-sm">
           {deployError}
         </div>
       )}
 
-      <div className="rounded-lg border border-border bg-card p-6">
-        <h2 className="mb-4 text-xl font-semibold text-foreground">
-          Configuration
-        </h2>
+      <div className="border-border bg-card rounded-lg border p-6">
+        <h2 className="text-foreground mb-4 text-xl font-semibold">Configuration</h2>
         <EnvVarsManager projectId={project.id} />
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-6">
-        <h2 className="mb-4 text-xl font-semibold text-foreground">
-          Webhook
-        </h2>
+      <div className="border-border bg-card rounded-lg border p-6">
+        <h2 className="text-foreground mb-4 text-xl font-semibold">Webhook</h2>
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
-              Webhook URL
-            </label>
+            <label className="text-foreground mb-1 block text-sm font-medium">Webhook URL</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 readOnly
                 value={`${window.location.origin}/webhooks/github?project_id=${project.id}`}
-                className="flex-1 rounded-md border border-input bg-secondary px-3 py-2 text-sm font-mono text-foreground"
+                className="border-input bg-secondary text-foreground flex-1 rounded-md border px-3 py-2 font-mono text-sm"
               />
               <button
                 onClick={() =>
@@ -105,28 +103,24 @@ export function ProjectDetailPage() {
                     `${window.location.origin}/webhooks/github?project_id=${project.id}`
                   )
                 }
-                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
               >
                 Copy
               </button>
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-foreground">
-              Webhook Secret
-            </label>
+            <label className="text-foreground mb-1 block text-sm font-medium">Webhook Secret</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 readOnly
                 value={project.webhook_secret}
-                className="flex-1 rounded-md border border-input bg-secondary px-3 py-2 text-sm font-mono text-foreground"
+                className="border-input bg-secondary text-foreground flex-1 rounded-md border px-3 py-2 font-mono text-sm"
               />
               <button
-                onClick={() =>
-                  navigator.clipboard.writeText(project.webhook_secret)
-                }
-                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+                onClick={() => navigator.clipboard.writeText(project.webhook_secret)}
+                className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
               >
                 Copy
               </button>

@@ -5,7 +5,11 @@ import type { User } from '../../types';
 export function useAuth() {
   const queryClient = useQueryClient();
 
-  const { data: user, isLoading, error } = useQuery<User>({
+  const {
+    data: user,
+    isLoading,
+    error,
+  } = useQuery<User>({
     queryKey: ['auth', 'me'],
     queryFn: authApi.me,
     retry: false,

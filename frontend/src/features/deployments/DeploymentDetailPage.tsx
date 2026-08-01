@@ -21,23 +21,69 @@ import {
   Activity,
 } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
+import { Button } from '../../components/ui/button';
 
 // --- Status config ---
 const STATUS_CONFIG = {
-  pending:  { label: 'Pending',  color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20', dot: 'bg-yellow-400', pulse: true  },
-  cloning:  { label: 'Cloning',  color: 'text-blue-400',   bg: 'bg-blue-400/10 border-blue-400/20',     dot: 'bg-blue-400',   pulse: true  },
-  building: { label: 'Building', color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20', dot: 'bg-orange-400', pulse: true  },
-  running:  { label: 'Starting', color: 'text-cyan-400',   bg: 'bg-cyan-400/10 border-cyan-400/20',     dot: 'bg-cyan-400',   pulse: true  },
-  live:     { label: 'Live',     color: 'text-green-400',  bg: 'bg-green-400/10 border-green-400/20',   dot: 'bg-green-400',  pulse: false },
-  stopped:  { label: 'Stopped',  color: 'text-gray-400',   bg: 'bg-gray-400/10 border-gray-400/20',     dot: 'bg-gray-400',   pulse: false },
-  failed:   { label: 'Failed',   color: 'text-red-400',    bg: 'bg-red-400/10 border-red-400/20',       dot: 'bg-red-400',    pulse: false },
+  pending: {
+    label: 'Pending',
+    color: 'text-warning',
+    bg: 'bg-warning/10 border-warning/20',
+    dot: 'bg-warning',
+    pulse: true,
+  },
+  cloning: {
+    label: 'Cloning',
+    color: 'text-info',
+    bg: 'bg-info/10 border-info/20',
+    dot: 'bg-info',
+    pulse: true,
+  },
+  building: {
+    label: 'Building',
+    color: 'text-warning',
+    bg: 'bg-warning/10 border-warning/20',
+    dot: 'bg-warning',
+    pulse: true,
+  },
+  running: {
+    label: 'Starting',
+    color: 'text-info',
+    bg: 'bg-info/10 border-info/20',
+    dot: 'bg-info',
+    pulse: true,
+  },
+  live: {
+    label: 'Live',
+    color: 'text-success',
+    bg: 'bg-success/10 border-success/20',
+    dot: 'bg-success',
+    pulse: false,
+  },
+  stopped: {
+    label: 'Stopped',
+    color: 'text-muted-foreground',
+    bg: 'bg-muted border-border',
+    dot: 'bg-muted-foreground',
+    pulse: false,
+  },
+  failed: {
+    label: 'Failed',
+    color: 'text-destructive',
+    bg: 'bg-destructive/10 border-destructive/20',
+    dot: 'bg-destructive',
+    pulse: false,
+  },
 } as const;
 
 // Formats a date string to "Jul 29, 2026 · 3:45 PM"
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
-    ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return (
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' · ' +
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  );
 }
 
 // How long ago
@@ -56,9 +102,15 @@ function timeAgo(dateStr: string) {
 function StatusBadge({ status }: { status: keyof typeof STATUS_CONFIG }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.stopped;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide ${cfg.bg} ${cfg.color}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide ${cfg.bg} ${cfg.color}`}
+    >
       <span className={`relative flex h-1.5 w-1.5`}>
-        {cfg.pulse && <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${cfg.dot} opacity-75`} />}
+        {cfg.pulse && (
+          <span
+            className={`absolute inline-flex h-full w-full animate-ping rounded-full ${cfg.dot} opacity-75`}
+          />
+        )}
         <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
       </span>
       {cfg.label}
@@ -66,7 +118,17 @@ function StatusBadge({ status }: { status: keyof typeof STATUS_CONFIG }) {
   );
 }
 
-function InfoCard({ label, value, mono = false, copyable = false }: { label: string; value: string; mono?: boolean; copyable?: boolean }) {
+function InfoCard({
+  label,
+  value,
+  mono = false,
+  copyable = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  copyable?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(value);
@@ -75,12 +137,24 @@ function InfoCard({ label, value, mono = false, copyable = false }: { label: str
   };
   return (
     <div className="group flex flex-col gap-1">
-      <span className="text-xs font-medium uppercase tracking-wider text-gray-500">{label}</span>
+      <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+        {label}
+      </span>
       <div className="flex items-center gap-2">
-        <span className={`truncate text-sm text-gray-200 ${mono ? 'font-mono' : ''}`}>{value}</span>
+        <span className={`text-foreground truncate text-sm ${mono ? 'font-mono' : ''}`}>
+          {value}
+        </span>
         {copyable && (
-          <button onClick={copy} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100" title="Copy">
-            {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5 text-gray-500 hover:text-gray-300" />}
+          <button
+            onClick={copy}
+            className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+            title="Copy"
+          >
+            {copied ? (
+              <CheckCircle2 className="text-success h-3.5 w-3.5" />
+            ) : (
+              <Copy className="text-muted-foreground hover:text-foreground h-3.5 w-3.5" />
+            )}
           </button>
         )}
       </div>
@@ -89,7 +163,11 @@ function InfoCard({ label, value, mono = false, copyable = false }: { label: str
 }
 
 // The actual terminal log panel
-function LogPanel({ logs, isStreaming, connectionStatus }: {
+function LogPanel({
+  logs,
+  isStreaming,
+  connectionStatus,
+}: {
   logs: string[];
   isStreaming: boolean;
   connectionStatus: string;
@@ -113,36 +191,39 @@ function LogPanel({ logs, isStreaming, connectionStatus }: {
 
   const displayLines = logs;
 
-  const connBadge = {
-    connecting: 'bg-yellow-500/20 text-yellow-400',
-    connected: 'bg-green-500/20 text-green-400',
-    closed: 'bg-gray-500/20 text-gray-400',
-    error: 'bg-red-500/20 text-red-400',
-  }[connectionStatus] ?? 'bg-gray-500/20 text-gray-400';
+  const connBadge =
+    {
+      connecting: 'bg-warning/10 text-warning',
+      connected: 'bg-success/10 text-success',
+      closed: 'bg-muted text-muted-foreground',
+      error: 'bg-destructive/10 text-destructive',
+    }[connectionStatus] ?? 'bg-muted text-muted-foreground';
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#0d1117]">
+    <div className="border-border bg-card flex h-full flex-col overflow-hidden rounded-xl border">
       {/* Header bar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
+      <div className="border-border flex shrink-0 items-center justify-between border-b px-4 py-2.5">
         <div className="flex items-center gap-3">
-          <Terminal className="h-4 w-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-300">Build Logs</span>
+          <Terminal className="text-muted-foreground h-4 w-4" />
+          <span className="text-foreground text-sm font-medium">Build Logs</span>
           {isStreaming && (
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${connBadge}`}>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase ${connBadge}`}
+            >
               {connectionStatus}
             </span>
           )}
         </div>
         <div className="flex items-center gap-3">
           {displayLines.length > 0 && (
-            <span className="text-xs text-gray-600">{displayLines.length} lines</span>
+            <span className="text-muted-foreground text-xs">{displayLines.length} lines</span>
           )}
-          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-500">
+          <label className="text-muted-foreground flex cursor-pointer items-center gap-1.5 text-xs">
             <input
               type="checkbox"
               checked={autoScroll}
-              onChange={e => setAutoScroll(e.target.checked)}
-              className="h-3 w-3 rounded accent-green-400"
+              onChange={(e) => setAutoScroll(e.target.checked)}
+              className="accent-success h-3 w-3 rounded"
             />
             Auto-scroll
           </label>
@@ -156,7 +237,7 @@ function LogPanel({ logs, isStreaming, connectionStatus }: {
         className="flex-1 overflow-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed"
       >
         {displayLines.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-gray-600">
+          <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3">
             <Terminal className="h-8 w-8 opacity-30" />
             <span className="text-sm">Waiting for logs…</span>
           </div>
@@ -164,13 +245,25 @@ function LogPanel({ logs, isStreaming, connectionStatus }: {
           displayLines.map((line, i) => {
             // colorize common patterns
             const isError = /error|failed|fatal/i.test(line);
-            const isWarn  = /warn/i.test(line);
-            const isOk    = /success|done|complete|✓/i.test(line);
-            const isStep  = /^(step|from|run|copy|add|workdir|cmd|entrypoint|arg|env|expose)\s/i.test(line) || /^\[+/.test(line);
-            const cls = isError ? 'text-red-400' : isWarn ? 'text-yellow-400' : isOk ? 'text-green-400' : isStep ? 'text-cyan-300' : 'text-gray-400';
+            const isWarn = /warn/i.test(line);
+            const isOk = /success|done|complete|✓/i.test(line);
+            const isStep =
+              /^(step|from|run|copy|add|workdir|cmd|entrypoint|arg|env|expose)\s/i.test(line) ||
+              /^\[+/.test(line);
+            const cls = isError
+              ? 'text-destructive'
+              : isWarn
+                ? 'text-warning'
+                : isOk
+                  ? 'text-success'
+                  : isStep
+                    ? 'text-info'
+                    : 'text-muted-foreground';
             return (
               <div key={i} className={`flex gap-3 ${cls}`}>
-                <span className="w-9 shrink-0 select-none text-right text-gray-700">{i + 1}</span>
+                <span className="text-muted-foreground w-9 shrink-0 text-right opacity-50 select-none">
+                  {i + 1}
+                </span>
                 <span className="break-all">{line || '\u00a0'}</span>
               </div>
             );
@@ -182,8 +275,11 @@ function LogPanel({ logs, isStreaming, connectionStatus }: {
       {/* Scroll-to-bottom fab */}
       {!autoScroll && displayLines.length > 0 && (
         <button
-          onClick={() => { setAutoScroll(true); endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }}
-          className="absolute bottom-6 right-6 flex items-center gap-1.5 rounded-full border border-white/10 bg-gray-800 px-3 py-1.5 text-xs text-gray-300 shadow-lg transition hover:bg-gray-700"
+          onClick={() => {
+            setAutoScroll(true);
+            endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          }}
+          className="border-border bg-popover text-popover-foreground hover:bg-accent hover:text-accent-foreground absolute right-6 bottom-6 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs shadow-lg transition"
         >
           <ChevronDown className="h-3.5 w-3.5" /> Jump to bottom
         </button>
@@ -207,7 +303,9 @@ export function DeploymentDetailPage() {
     enabled: !!deploymentId,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status && ['pending', 'cloning', 'building', 'running'].includes(status) ? 2000 : false;
+      return status && ['pending', 'cloning', 'building', 'running'].includes(status)
+        ? 2000
+        : false;
     },
   });
 
@@ -226,7 +324,7 @@ export function DeploymentDetailPage() {
   });
 
   const handleLog = useCallback((line: string) => {
-    setLogs(prev => [...prev, line]);
+    setLogs((prev) => [...prev, line]);
   }, []);
 
   const handleStatusChange = useCallback((status: string) => {
@@ -235,7 +333,7 @@ export function DeploymentDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-64 items-center justify-center gap-3 text-gray-500">
+      <div className="text-muted-foreground flex h-64 items-center justify-center gap-3">
         <Loader2 className="h-5 w-5 animate-spin" />
         <span>Loading deployment…</span>
       </div>
@@ -245,65 +343,68 @@ export function DeploymentDetailPage() {
   if (!deployment) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
-        <XCircle className="h-8 w-8 text-red-400" />
-        <span className="text-gray-400">Deployment not found</span>
+        <XCircle className="text-destructive h-8 w-8" />
+        <span className="text-muted-foreground">Deployment not found</span>
       </div>
     );
   }
 
   const status = deployment.status as keyof typeof STATUS_CONFIG;
   const isActive = ['pending', 'cloning', 'building', 'running'].includes(status);
-  const isLive   = status === 'live';
+  const isLive = status === 'live';
 
   // no TLS on .localhost
   const protocol = project?.domain?.includes('localhost') ? 'http' : 'https';
   const deploymentUrl = project?.domain
-    ? (project.domain.startsWith('http') ? project.domain : `${protocol}://${project.domain}`)
+    ? project.domain.startsWith('http')
+      ? project.domain
+      : `${protocol}://${project.domain}`
     : undefined;
 
   return (
-    <div className="-m-6 flex h-[calc(100vh-4rem)] flex-col gap-0 overflow-hidden" style={{ height: 'calc(100vh - 4rem)' }}>
-
+    <div className="-m-6 flex h-[calc(100vh-4rem)] flex-col gap-0 overflow-hidden">
       {/* ── Top bar ── */}
-      <div className="flex shrink-0 items-center gap-4 border-b border-white/[0.06] bg-gray-950 px-6 py-3">
+      <div className="border-border bg-card flex shrink-0 items-center gap-4 border-b px-6 py-3">
         <Link
           to="/projects/$projectId"
           params={{ projectId: deployment.project_id }}
-          className="flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-300"
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-sm transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to project
         </Link>
-        <span className="text-gray-700">/</span>
-        <span className="font-mono text-sm text-gray-400">
-          {deployment.id.slice(0, 8)}
-        </span>
+        <span className="text-muted-foreground opacity-50">/</span>
+        <span className="text-muted-foreground font-mono text-sm">{deployment.id.slice(0, 8)}</span>
         <div className="ml-auto flex items-center gap-3">
           <StatusBadge status={status} />
           {isLive && deploymentUrl && (
             <>
-              <button
+              <Button
+                variant="destructive"
                 onClick={() => stopMutation.mutate()}
                 disabled={stopMutation.isPending}
-                className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
               >
-                {stopMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Square className="h-3.5 w-3.5" />}
+                {stopMutation.isPending ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Square className="mr-2 h-3.5 w-3.5" />
+                )}
                 {stopMutation.isPending ? 'Stopping…' : 'Stop'}
-              </button>
+              </Button>
               <a
                 href={deploymentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-500"
+                className="focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center justify-center rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap shadow transition-colors focus-visible:ring-1 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
               >
-                <Globe className="h-3.5 w-3.5" />
+                <Globe className="mr-2 h-3.5 w-3.5" />
                 Open App
-                <ExternalLink className="h-3 w-3 opacity-70" />
+                <ExternalLink className="ml-2 h-3 w-3 opacity-70" />
               </a>
             </>
           )}
           {status === 'failed' && (
-            <div className="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-sm text-red-400">
+            <div className="border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm">
               <XCircle className="h-3.5 w-3.5" /> Deployment Failed
             </div>
           )}
@@ -312,21 +413,19 @@ export function DeploymentDetailPage() {
 
       {/* ── Body: two columns ── */}
       <div className="flex min-h-0 flex-1 gap-0">
-
         {/* Left sidebar — metadata */}
-        <aside className="flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-r border-white/[0.06] bg-gray-950 p-5">
-
+        <aside className="border-border bg-card flex w-72 shrink-0 flex-col gap-4 overflow-y-auto border-r p-5">
           {/* Live banner */}
           {isLive && deploymentUrl && (
-            <div className="flex flex-col gap-2 rounded-xl border border-green-500/20 bg-green-500/5 p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-green-400">
+            <div className="border-success/20 bg-success/10 flex flex-col gap-2 rounded-xl border p-4">
+              <div className="text-success flex items-center gap-2 text-sm font-semibold">
                 <Activity className="h-4 w-4" /> Live
               </div>
               <a
                 href={deploymentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="break-all font-mono text-xs text-green-300 underline underline-offset-2 opacity-80 hover:opacity-100"
+                className="text-success font-mono text-xs break-all underline underline-offset-2 opacity-80 hover:opacity-100"
               >
                 {deploymentUrl}
               </a>
@@ -334,8 +433,8 @@ export function DeploymentDetailPage() {
           )}
 
           {/* Commit */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+          <div className="border-border bg-card/50 rounded-xl border p-4">
+            <div className="text-muted-foreground mb-3 flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
               <GitCommit className="h-3.5 w-3.5" /> Commit
             </div>
             <div className="flex flex-col gap-2.5">
@@ -347,8 +446,8 @@ export function DeploymentDetailPage() {
           </div>
 
           {/* Timing */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+          <div className="border-border bg-card/50 rounded-xl border p-4">
+            <div className="text-muted-foreground mb-3 flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
               <Clock className="h-3.5 w-3.5" /> Timing
             </div>
             <div className="flex flex-col gap-2.5">
@@ -359,8 +458,8 @@ export function DeploymentDetailPage() {
 
           {/* Container */}
           {deployment.container_id && (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+            <div className="border-border bg-card/50 rounded-xl border p-4">
+              <div className="text-muted-foreground mb-3 flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
                 <Server className="h-3.5 w-3.5" /> Container
               </div>
               <div className="flex flex-col gap-2.5">
@@ -377,8 +476,8 @@ export function DeploymentDetailPage() {
           )}
 
           {/* Deployment ID */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+          <div className="border-border bg-card/50 rounded-xl border p-4">
+            <div className="text-muted-foreground mb-3 flex items-center gap-2 text-xs font-semibold tracking-wider uppercase">
               <HardDrive className="h-3.5 w-3.5" /> Deployment
             </div>
             <InfoCard label="ID" value={deployment.id} mono copyable />
@@ -386,12 +485,8 @@ export function DeploymentDetailPage() {
         </aside>
 
         {/* Right — log panel */}
-        <main className="relative min-w-0 flex-1 bg-[#0d1117] p-4">
-          <LogPanel
-            logs={logs}
-            isStreaming={isActive}
-            connectionStatus={connectionStatus}
-          />
+        <main className="bg-surface relative min-w-0 flex-1 p-4">
+          <LogPanel logs={logs} isStreaming={isActive} connectionStatus={connectionStatus} />
           {/* Always mount — replays Redis history even for live/failed deployments */}
           <LogStreamer
             deploymentId={deployment.id}

@@ -12,25 +12,25 @@ export function DeploymentsPage() {
       // Fetch all projects first, then get deployments for each
       const response = await fetch('/api/v1/projects', { credentials: 'include' });
       const projects = await response.json();
-      
+
       const allDeployments: Deployment[] = [];
       for (const project of projects) {
         const projectDeployments = await deploymentsApi.list(project.id);
         allDeployments.push(...projectDeployments);
       }
-      
-      return allDeployments.sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+
+      return allDeployments.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
     },
     refetchInterval: (query) => {
       const deployments = query.state.data;
       if (!deployments) return 30000;
-      
-      const hasActive = deployments.some(d => 
+
+      const hasActive = deployments.some((d) =>
         ['pending', 'cloning', 'building', 'running'].includes(d.status)
       );
-      
+
       return hasActive ? 2000 : 30000;
     },
   });
@@ -43,18 +43,16 @@ export function DeploymentsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Deployments</h1>
-          <p className="mt-2 text-muted-foreground">
+          <h1 className="text-foreground text-3xl font-bold">Deployments</h1>
+          <p className="text-muted-foreground mt-2">
             View and manage all deployments across your projects
           </p>
         </div>
 
-        <div className="rounded-lg border border-dashed border-border p-12 text-center">
-          <Rocket className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-4 text-lg font-semibold text-foreground">
-            No deployments yet
-          </h3>
-          <p className="mt-2 text-sm text-muted-foreground">
+        <div className="border-border rounded-lg border border-dashed p-12 text-center">
+          <Rocket className="text-muted-foreground mx-auto h-12 w-12" />
+          <h3 className="text-foreground mt-4 text-lg font-semibold">No deployments yet</h3>
+          <p className="text-muted-foreground mt-2 text-sm">
             Deployments will appear here once you trigger them from your projects
           </p>
         </div>
@@ -69,7 +67,7 @@ export function DeploymentsPage() {
       case 'cloning':
       case 'building':
       case 'running':
-        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
+        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
       case 'live':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'failed':
@@ -103,8 +101,8 @@ export function DeploymentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Deployments</h1>
-        <p className="mt-2 text-muted-foreground">
+        <h1 className="text-foreground text-3xl font-bold">Deployments</h1>
+        <p className="text-muted-foreground mt-2">
           View and manage all deployments across your projects
         </p>
       </div>
@@ -115,17 +113,19 @@ export function DeploymentsPage() {
             key={deployment.id}
             to="/deployments/$deploymentId"
             params={{ deploymentId: deployment.id }}
-            className="block rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50"
+            className="border-border bg-card hover:border-primary/50 block rounded-lg border p-4 transition-colors"
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3">
-                  <h3 className="font-semibold text-foreground">
-                    {deployment.id.slice(0, 8)}
-                  </h3>
-                  <span className={`relative flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(deployment.status)}`}>
+                  <h3 className="text-foreground font-semibold">{deployment.id.slice(0, 8)}</h3>
+                  <span
+                    className={`relative flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(deployment.status)}`}
+                  >
                     {isActiveStatus(deployment.status) && (
-                      <span className={`absolute inset-0 rounded-full ${getStatusColor(deployment.status)} animate-pulse-ring`} />
+                      <span
+                        className={`absolute inset-0 rounded-full ${getStatusColor(deployment.status)} animate-pulse-ring`}
+                      />
                     )}
                     <span className="relative flex items-center gap-1.5">
                       {getStatusIcon(deployment.status)}
@@ -133,12 +133,12 @@ export function DeploymentsPage() {
                     </span>
                   </span>
                 </div>
-                <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
+                <div className="text-muted-foreground mt-2 flex items-center gap-4 text-sm">
                   <span>Project: {deployment.project_id.slice(0, 8)}</span>
                   <span>Commit: {deployment.commit_sha.slice(0, 7)}</span>
                   <span>Triggered by: {deployment.triggered_by}</span>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
+                <div className="text-muted-foreground mt-1 text-xs">
                   {new Date(deployment.created_at).toLocaleString()}
                 </div>
               </div>

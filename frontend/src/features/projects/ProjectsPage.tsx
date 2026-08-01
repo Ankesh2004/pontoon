@@ -34,17 +34,15 @@ function ProjectCard({ project }: { project: Project }) {
   });
 
   return (
-    <div className="rounded-lg border border-border bg-card p-6 transition-colors hover:border-primary/50">
+    <div className="border-border bg-card hover:border-primary/50 rounded-lg border p-6 transition-colors">
       <div className="flex items-start justify-between gap-4">
         <Link
           to="/projects/$projectId"
           params={{ projectId: project.id }}
           className="min-w-0 flex-1"
         >
-          <h3 className="font-semibold text-foreground hover:text-primary">
-            {project.name}
-          </h3>
-          <p className="mt-1 truncate text-sm text-muted-foreground">
+          <h3 className="text-foreground hover:text-primary font-semibold">{project.name}</h3>
+          <p className="text-muted-foreground mt-1 truncate text-sm">
             {project.repo_owner}/{project.repo_name}
           </p>
         </Link>
@@ -73,7 +71,7 @@ function ProjectCard({ project }: { project: Project }) {
       <div className="mt-4 space-y-2">
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Branch:</span>
-          <span className="rounded bg-secondary px-2 py-0.5 font-mono text-xs">
+          <span className="bg-secondary rounded px-2 py-0.5 font-mono text-xs">
             {project.branch}
           </span>
         </div>
@@ -83,7 +81,7 @@ function ProjectCard({ project }: { project: Project }) {
             href={deploymentUrl(project.domain)}
             target="_blank"
             rel="noopener noreferrer"
-            className="truncate font-mono text-xs text-foreground hover:text-primary hover:underline"
+            className="text-foreground hover:text-primary truncate font-mono text-xs hover:underline"
           >
             {project.domain}
           </a>
@@ -91,7 +89,7 @@ function ProjectCard({ project }: { project: Project }) {
       </div>
 
       {deployError && (
-        <div className="mt-4 rounded-md bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
+        <div className="bg-destructive/10 border-destructive/20 text-destructive mt-4 rounded-md border p-3 text-xs">
           {deployError}
         </div>
       )}
@@ -103,7 +101,7 @@ function ProjectCard({ project }: { project: Project }) {
             deployMutation.mutate();
           }}
           disabled={deployMutation.isPending}
-          className="flex flex-1 items-center justify-center gap-2 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 disabled:cursor-not-allowed disabled:opacity-50"
+          className="bg-secondary text-secondary-foreground hover:bg-secondary/80 flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
           {deployMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
           {deployMutation.isPending ? 'Deploying...' : 'Deploy'}
@@ -111,7 +109,7 @@ function ProjectCard({ project }: { project: Project }) {
         <Link
           to="/projects/$projectId"
           params={{ projectId: project.id }}
-          className="flex-1 rounded-md border border-border px-3 py-1.5 text-center text-xs font-medium text-foreground hover:bg-accent"
+          className="border-border text-foreground hover:bg-accent flex-1 rounded-md border px-3 py-1.5 text-center text-xs font-medium"
         >
           Settings
         </Link>
@@ -123,7 +121,11 @@ function ProjectCard({ project }: { project: Project }) {
 export function ProjectsPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  const { data: projects, isLoading, error } = useQuery({
+  const {
+    data: projects,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.list,
   });
@@ -140,27 +142,23 @@ export function ProjectsPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-foreground">Projects</h1>
+          <h1 className="text-foreground text-3xl font-bold">Projects</h1>
           <button
             onClick={() => setShowCreateForm(true)}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium"
           >
             New Project
           </button>
         </div>
-        <div className="rounded-lg border border-dashed border-border p-12 text-center">
-          <FolderGit2 className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-4 text-lg font-semibold text-foreground">
-            No projects yet
-          </h3>
-          <p className="mt-2 text-sm text-muted-foreground">
+        <div className="border-border rounded-lg border border-dashed p-12 text-center">
+          <FolderGit2 className="text-muted-foreground mx-auto h-12 w-12" />
+          <h3 className="text-foreground mt-4 text-lg font-semibold">No projects yet</h3>
+          <p className="text-muted-foreground mt-2 text-sm">
             Create your first project to get started
           </p>
         </div>
 
-        {showCreateForm && (
-          <ProjectCreateForm onClose={() => setShowCreateForm(false)} />
-        )}
+        {showCreateForm && <ProjectCreateForm onClose={() => setShowCreateForm(false)} />}
       </div>
     );
   }
@@ -168,10 +166,10 @@ export function ProjectsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">Projects</h1>
+        <h1 className="text-foreground text-3xl font-bold">Projects</h1>
         <button
           onClick={() => setShowCreateForm(true)}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium"
         >
           New Project
         </button>
@@ -183,9 +181,7 @@ export function ProjectsPage() {
         ))}
       </div>
 
-      {showCreateForm && (
-        <ProjectCreateForm onClose={() => setShowCreateForm(false)} />
-      )}
+      {showCreateForm && <ProjectCreateForm onClose={() => setShowCreateForm(false)} />}
     </div>
   );
 }

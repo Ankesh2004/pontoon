@@ -1,10 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  RouterProvider,
-  createRouter,
-  createRootRoute,
-  createRoute,
-} from '@tanstack/react-router';
+import { RouterProvider, createRouter, createRootRoute, createRoute } from '@tanstack/react-router';
+import { ThemeProvider } from './components/theme/ThemeProvider';
 import { Layout } from './components/layout/Layout';
 import { AuthGuard } from './components/layout/AuthGuard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -138,8 +134,10 @@ declare module '@tanstack/react-router' {
 
 export function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

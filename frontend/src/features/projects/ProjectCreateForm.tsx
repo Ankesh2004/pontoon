@@ -59,68 +59,55 @@ export function ProjectCreateForm({ onClose }: ProjectCreateFormProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-lg">
+      <div className="border-border bg-card w-full max-w-md rounded-lg border p-6 shadow-lg">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-foreground">Create Project</h2>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
-          >
+          <h2 className="text-foreground text-2xl font-bold">Create Project</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
-              Project Name
-            </label>
+            <label className="text-foreground mb-2 block text-sm font-medium">Project Name</label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               placeholder="my-project"
             />
-            {errors.name && (
-              <p className="mt-1 text-sm text-destructive">{errors.name}</p>
-            )}
+            {errors.name && <p className="text-destructive mt-1 text-sm">{errors.name}</p>}
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label className="text-foreground mb-2 block text-sm font-medium">
               GitHub Repository URL
             </label>
             <input
               type="text"
               value={formData.repo_url}
               onChange={(e) => setFormData({ ...formData, repo_url: e.target.value })}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               placeholder="https://github.com/username/repo"
             />
-            {errors.repo_url && (
-              <p className="mt-1 text-sm text-destructive">{errors.repo_url}</p>
-            )}
+            {errors.repo_url && <p className="text-destructive mt-1 text-sm">{errors.repo_url}</p>}
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
-              Branch
-            </label>
+            <label className="text-foreground mb-2 block text-sm font-medium">Branch</label>
             <input
               type="text"
               value={formData.branch}
               onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               placeholder="main"
             />
-            {errors.branch && (
-              <p className="mt-1 text-sm text-destructive">{errors.branch}</p>
-            )}
+            {errors.branch && <p className="text-destructive mt-1 text-sm">{errors.branch}</p>}
           </div>
 
           {errors.submit && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
               {errors.submit}
             </div>
           )}
@@ -129,14 +116,14 @@ export function ProjectCreateForm({ onClose }: ProjectCreateFormProps) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+              className="border-border text-foreground hover:bg-accent flex-1 rounded-md border px-4 py-2 text-sm font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
             >
               {createMutation.isPending ? 'Creating...' : 'Create Project'}
             </button>
