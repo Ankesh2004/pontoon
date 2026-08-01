@@ -151,10 +151,11 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"id":       user.ID,
-		"username": user.GitHubUsername,
-		"avatar":   user.AvatarURL,
-		"email":    user.Email,
+		"id":              user.ID,
+		"github_id":       user.GitHubID,
+		"github_username": user.GitHubUsername,
+		"avatar_url":      user.AvatarURL,
+		"email":           user.Email,
 	})
 }
 
