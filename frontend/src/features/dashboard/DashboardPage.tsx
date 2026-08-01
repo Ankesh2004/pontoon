@@ -249,9 +249,15 @@ export function DashboardPage() {
             <div className="text-muted-foreground flex h-48 flex-col items-center justify-center gap-3">
               <Rocket className="h-8 w-8 opacity-30" />
               <p className="text-sm">No deployments yet.</p>
-              <RouterLink to="/projects" className="text-primary text-xs hover:underline">
-                Create your first project →
-              </RouterLink>
+              {projects.length === 0 ? (
+                <RouterLink to="/projects" className="text-primary text-xs hover:underline">
+                  Create your first project →
+                </RouterLink>
+              ) : (
+                <RouterLink to="/projects" className="text-primary text-xs hover:underline">
+                  Deploy a project →
+                </RouterLink>
+              )}
             </div>
           ) : (
             <div className="divide-border divide-y px-2 py-2">

@@ -1,8 +1,11 @@
-import { api } from './client';
+import { api, fetchCsrfToken } from './client';
 import type { User, Project, Deployment, EnvVar, WSTicket } from '../types';
 
 export const authApi = {
-  me: () => api.get<User>('/auth/me'),
+  me: async () => {
+    await fetchCsrfToken();
+    return api.get<User>('/auth/me');
+  },
   wsTicket: () => api.post<WSTicket>('/auth/ws-ticket'),
   logout: () => api.get<void>('/auth/logout'),
 };

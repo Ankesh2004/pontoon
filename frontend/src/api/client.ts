@@ -1,11 +1,26 @@
 const API_BASE = '';
 
+let csrfToken = '';
+
+export async function fetchCsrfToken() {
+  try {
+    const response = await fetch(`${API_BASE}/auth/csrf`, { credentials: 'include' });
+    if (response.ok) {
+      const data = await response.json();
+      csrfToken = data.token;
+    }
+  } catch (error) {
+    console.error('Failed to fetch CSRF token:', error);
+  }
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken,
       ...options.headers,
     },
   });

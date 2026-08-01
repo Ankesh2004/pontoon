@@ -1,10 +1,12 @@
 package delivery
 
 import (
+	"crypto/sha256"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/gorilla/csrf"
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/Ankesh2004/pontoon/internal/config"
@@ -45,6 +47,14 @@ func NewRouter(
 	wsHandler := handler.NewWebSocketHandler(deploymentUC, redisClient)
 	logHandler := handler.NewLogHandler(deploymentUC, dockerClient)
 
+	// Generate 32-byte key from JWT secret for CSRF
+	csrfKey := sha256.Sum256([]byte(cfg.JWT.Secret))
+	csrfMiddleware := csrf.Protect(
+		csrfKey[:],
+		csrf.Secure(false), // Disable Secure for localhost testing (set to true in production with HTTPS)
+		csrf.Path("/"),
+	)
+
 	r.Route("/auth", func(r chi.Router) {
 		r.Get("/github", authHandler.Login)
 		r.Get("/callback", authHandler.Callback)
@@ -52,7 +62,13 @@ func NewRouter(
 
 		r.Group(func(r chi.Router) {
 			r.Use(mw.Auth(authUC))
+			r.Use(csrfMiddleware)
 			r.Get("/me", authHandler.Me)
+			r.Get("/csrf", func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("X-CSRF-Token", csrf.Token(r))
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"token":"` + csrf.Token(r) + `"}`))
+			})
 			r.Post("/ws-ticket", authHandler.WSTicket)
 		})
 	})
@@ -61,6 +77,7 @@ func NewRouter(
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(mw.Auth(authUC))
+		r.Use(csrfMiddleware)
 
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
