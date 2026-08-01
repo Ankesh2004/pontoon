@@ -52,27 +52,32 @@ func (c *Client) BuildImage(ctx context.Context, cfg BuildConfig) (string, error
 	
 	for scanner.Scan() {
 		line := scanner.Text()
-		logs.WriteString(line + "\n")
+		
+		var buildOutput struct {
+			Stream string `json:"stream"`
+			Error  string `json:"error"`
+		}
+		
+		var logText string
+		if err := json.Unmarshal([]byte(line), &buildOutput); err == nil {
+			if buildOutput.Stream != "" {
+				logText = buildOutput.Stream
+			} else if buildOutput.Error != "" {
+				logText = "ERROR: " + buildOutput.Error + "\n"
+			}
+		}
+		
+		if logText == "" {
+			logText = line + "\n"
+		}
+
+		logs.WriteString(logText)
 		
 		// Publish to Redis in real-time if deployment ID and Redis client are provided
 		if cfg.DeploymentID != "" && cfg.RedisClient != nil {
-			// Parse Docker build output (it's JSON)
-			var buildOutput struct {
-				Stream string `json:"stream"`
-				Error  string `json:"error"`
-			}
-			
-			if err := json.Unmarshal([]byte(line), &buildOutput); err == nil {
-				if buildOutput.Stream != "" {
-					// Remove trailing newline for cleaner output
-					streamLine := strings.TrimSuffix(buildOutput.Stream, "\n")
-					if streamLine != "" {
-						PublishLog(ctx, cfg.RedisClient, cfg.DeploymentID, streamLine)
-					}
-				}
-				if buildOutput.Error != "" {
-					PublishLog(ctx, cfg.RedisClient, cfg.DeploymentID, "ERROR: "+buildOutput.Error)
-				}
+			streamLine := strings.TrimSuffix(logText, "\n")
+			if streamLine != "" {
+				PublishLog(ctx, cfg.RedisClient, cfg.DeploymentID, streamLine)
 			}
 		}
 	}

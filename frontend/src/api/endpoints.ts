@@ -22,6 +22,7 @@ export const projectsApi = {
 export const deploymentsApi = {
   list: (projectId: string) => api.get<Deployment[]>(`/api/v1/projects/${projectId}/deployments`),
   get: (id: string) => api.get<Deployment>(`/api/v1/deployments/${id}`),
+  getLogs: (id: string) => api.getText(`/api/v1/deployments/${id}/logs`),
   trigger: (projectId: string, commitSha?: string) =>
     api.post<Deployment>(`/api/v1/projects/${projectId}/deploy`, {
       commit_sha: commitSha,

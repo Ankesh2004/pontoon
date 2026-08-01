@@ -19,7 +19,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...options,
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': options.headers && 'Content-Type' in options.headers 
+        ? (options.headers as any)['Content-Type'] 
+        : 'application/json',
       'X-CSRF-Token': csrfToken,
       ...options.headers,
     },
@@ -39,6 +41,17 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 export const api = {
   get: <T>(endpoint: string) => request<T>(endpoint),
+  getText: async (endpoint: string): Promise<string> => {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      credentials: 'include',
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || `HTTP ${response.status}`);
+    }
+    return response.text();
+  },
 
   post: <T>(endpoint: string, data?: unknown) =>
     request<T>(endpoint, {

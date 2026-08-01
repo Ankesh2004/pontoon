@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { deploymentsApi, projectsApi } from '../../api/endpoints';
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { LogStreamer } from '../logs/LogStreamer';
+import { useState, useCallback } from 'react';
+import { TerminalView } from '../logs/TerminalView';
 import {
   ArrowLeft,
   ExternalLink,
@@ -17,7 +17,6 @@ import {
   Loader2,
   Terminal,
   Copy,
-  ChevronDown,
   Activity,
 } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
@@ -162,137 +161,12 @@ function InfoCard({
   );
 }
 
-// The actual terminal log panel
-function LogPanel({
-  logs,
-  isStreaming,
-  connectionStatus,
-}: {
-  logs: string[];
-  isStreaming: boolean;
-  connectionStatus: string;
-}) {
-  const [autoScroll, setAutoScroll] = useState(true);
-  const endRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  // auto-scroll whenever new lines arrive
-  useEffect(() => {
-    if (autoScroll) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [logs, autoScroll]);
-
-  // detect manual scroll up to disable autoscroll
-  const onScroll = () => {
-    const el = containerRef.current;
-    if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    setAutoScroll(atBottom);
-  };
-
-  const displayLines = logs;
-
-  const connBadge =
-    {
-      connecting: 'bg-warning/10 text-warning',
-      connected: 'bg-success/10 text-success',
-      closed: 'bg-muted text-muted-foreground',
-      error: 'bg-destructive/10 text-destructive',
-    }[connectionStatus] ?? 'bg-muted text-muted-foreground';
-
-  return (
-    <div className="border-border bg-card flex h-full flex-col overflow-hidden rounded-xl border">
-      {/* Header bar */}
-      <div className="border-border flex shrink-0 items-center justify-between border-b px-4 py-2.5">
-        <div className="flex items-center gap-3">
-          <Terminal className="text-muted-foreground h-4 w-4" />
-          <span className="text-foreground text-sm font-medium">Build Logs</span>
-          {isStreaming && (
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase ${connBadge}`}
-            >
-              {connectionStatus}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          {displayLines.length > 0 && (
-            <span className="text-muted-foreground text-xs">{displayLines.length} lines</span>
-          )}
-          <label className="text-muted-foreground flex cursor-pointer items-center gap-1.5 text-xs">
-            <input
-              type="checkbox"
-              checked={autoScroll}
-              onChange={(e) => setAutoScroll(e.target.checked)}
-              className="accent-success h-3 w-3 rounded"
-            />
-            Auto-scroll
-          </label>
-        </div>
-      </div>
-
-      {/* Log body */}
-      <div
-        ref={containerRef}
-        onScroll={onScroll}
-        className="flex-1 overflow-auto px-4 py-3 font-mono text-[12.5px] leading-relaxed"
-      >
-        {displayLines.length === 0 ? (
-          <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3">
-            <Terminal className="h-8 w-8 opacity-30" />
-            <span className="text-sm">Waiting for logs…</span>
-          </div>
-        ) : (
-          displayLines.map((line, i) => {
-            // colorize common patterns
-            const isError = /error|failed|fatal/i.test(line);
-            const isWarn = /warn/i.test(line);
-            const isOk = /success|done|complete|✓/i.test(line);
-            const isStep =
-              /^(step|from|run|copy|add|workdir|cmd|entrypoint|arg|env|expose)\s/i.test(line) ||
-              /^\[+/.test(line);
-            const cls = isError
-              ? 'text-destructive'
-              : isWarn
-                ? 'text-warning'
-                : isOk
-                  ? 'text-success'
-                  : isStep
-                    ? 'text-info'
-                    : 'text-muted-foreground';
-            return (
-              <div key={i} className={`flex gap-3 ${cls}`}>
-                <span className="text-muted-foreground w-9 shrink-0 text-right opacity-50 select-none">
-                  {i + 1}
-                </span>
-                <span className="break-all">{line || '\u00a0'}</span>
-              </div>
-            );
-          })
-        )}
-        <div ref={endRef} />
-      </div>
-
-      {/* Scroll-to-bottom fab */}
-      {!autoScroll && displayLines.length > 0 && (
-        <button
-          onClick={() => {
-            setAutoScroll(true);
-            endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-          }}
-          className="border-border bg-popover text-popover-foreground hover:bg-accent hover:text-accent-foreground absolute right-6 bottom-6 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs shadow-lg transition"
-        >
-          <ChevronDown className="h-3.5 w-3.5" /> Jump to bottom
-        </button>
-      )}
-    </div>
-  );
-}
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function DeploymentDetailPage() {
   const { deploymentId } = useParams({ strict: false }) as { deploymentId: string };
-  const [logs, setLogs] = useState<string[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<string>('connecting');
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -323,10 +197,6 @@ export function DeploymentDetailPage() {
     },
   });
 
-  const handleLog = useCallback((line: string) => {
-    setLogs((prev) => [...prev, line]);
-  }, []);
-
   const handleStatusChange = useCallback((status: string) => {
     setConnectionStatus(status);
   }, []);
@@ -350,7 +220,6 @@ export function DeploymentDetailPage() {
   }
 
   const status = deployment.status as keyof typeof STATUS_CONFIG;
-  const isActive = ['pending', 'cloning', 'building', 'running'].includes(status);
   const isLive = status === 'live';
 
   // no TLS on .localhost
@@ -486,13 +355,27 @@ export function DeploymentDetailPage() {
 
         {/* Right — log panel */}
         <main className="bg-surface relative min-w-0 flex-1 p-4">
-          <LogPanel logs={logs} isStreaming={isActive} connectionStatus={connectionStatus} />
-          {/* Always mount — replays Redis history even for live/failed deployments */}
-          <LogStreamer
-            deploymentId={deployment.id}
-            onLog={handleLog}
-            onStatusChange={handleStatusChange}
-          />
+          <div className="border-border bg-card flex h-full flex-col overflow-hidden rounded-xl border">
+            {/* Header bar */}
+            <div className="border-border flex shrink-0 items-center justify-between border-b px-4 py-2.5">
+              <div className="flex items-center gap-3">
+                <Terminal className="text-muted-foreground h-4 w-4" />
+                <span className="text-foreground text-sm font-medium">Build Logs</span>
+                <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
+                  {connectionStatus}
+                </span>
+              </div>
+            </div>
+            {/* Terminal Container */}
+            <div className="flex-1 overflow-hidden bg-black">
+              <TerminalView 
+                deploymentId={deployment.id} 
+                status={status} 
+                buildLogs={deployment.build_logs}
+                onConnectionChange={handleStatusChange} 
+              />
+            </div>
+          </div>
         </main>
       </div>
     </div>

@@ -3,6 +3,7 @@ package delivery
 import (
 	"crypto/sha256"
 	"net/http"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -47,12 +48,23 @@ func NewRouter(
 	wsHandler := handler.NewWebSocketHandler(deploymentUC, redisClient)
 	logHandler := handler.NewLogHandler(deploymentUC, dockerClient)
 
+	// Extract hostnames for CSRF trusted origins
+	var trustedOrigins []string
+	for _, origin := range cfg.CORS.AllowedOrigins {
+		if u, err := url.Parse(origin); err == nil && u.Host != "" {
+			trustedOrigins = append(trustedOrigins, u.Host)
+		} else {
+			trustedOrigins = append(trustedOrigins, origin)
+		}
+	}
+
 	// Generate 32-byte key from JWT secret for CSRF
 	csrfKey := sha256.Sum256([]byte(cfg.JWT.Secret))
 	csrfMiddleware := csrf.Protect(
 		csrfKey[:],
 		csrf.Secure(false), // Disable Secure for localhost testing (set to true in production with HTTPS)
 		csrf.Path("/"),
+		csrf.TrustedOrigins(trustedOrigins),
 	)
 
 	r.Route("/auth", func(r chi.Router) {

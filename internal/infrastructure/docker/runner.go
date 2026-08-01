@@ -8,6 +8,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -131,10 +132,11 @@ func (c *Client) GetContainerLogs(ctx context.Context, containerID string, tail 
 	}
 	defer logs.Close()
 
-	buf := new(bytes.Buffer)
-	if _, err := buf.ReadFrom(logs); err != nil {
-		return "", fmt.Errorf("failed to read logs: %w", err)
+	outBuf := new(bytes.Buffer)
+	errBuf := new(bytes.Buffer)
+	if _, err := stdcopy.StdCopy(outBuf, errBuf, logs); err != nil {
+		return "", fmt.Errorf("failed to demultiplex logs: %w", err)
 	}
 
-	return buf.String(), nil
+	return outBuf.String() + errBuf.String(), nil
 }
