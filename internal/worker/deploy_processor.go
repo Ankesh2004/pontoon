@@ -83,6 +83,13 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	}
 	docker.PublishLog(ctx, p.redisClient, payload.DeploymentID, "==> Clone complete.")
 
+	// Resolve actual commit SHA from the cloned repo
+	revCmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+	revCmd.Dir = repoDir
+	if out, err := revCmd.Output(); err == nil {
+		payload.CommitSHA = strings.TrimSpace(string(out))
+	}
+
 	// Update status to building
 	if err := p.deploymentRepo.UpdateStatus(payload.DeploymentID, domain.DeploymentStatusBuilding, ""); err != nil {
 		return fmt.Errorf("failed to update status: %w", err)
@@ -144,6 +151,18 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	})
 	if err != nil {
 		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to run container: %w", err))
+	}
+
+	// Stop existing live deployments for zero-downtime transition
+	if oldDeployments, err := p.deploymentRepo.GetByProjectID(payload.ProjectID); err == nil {
+		for _, oldDep := range oldDeployments {
+			if oldDep.ID != payload.DeploymentID && oldDep.Status == domain.DeploymentStatusLive {
+				slog.Info("stopping old deployment", "deployment_id", oldDep.ID, "container_id", oldDep.ContainerID)
+				_ = p.dockerClient.StopContainer(ctx, oldDep.ContainerID)
+				_ = p.dockerClient.RemoveContainer(ctx, oldDep.ContainerID)
+				_ = p.deploymentRepo.UpdateStatus(oldDep.ID, domain.DeploymentStatusStopped, "")
+			}
+		}
 	}
 
 	// Update deployment with success

@@ -22,17 +22,57 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
 
   const createMutation = useMutation({
     mutationFn: (data: { key: string; value: string }) => envVarsApi.create(projectId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['envVars', projectId] });
+    onMutate: async (newEnvVar) => {
+      await queryClient.cancelQueries({ queryKey: ['envVars', projectId] });
+      const previousEnvVars = queryClient.getQueryData<EnvVar[]>(['envVars', projectId]);
+
+      const optimisticEnvVar: EnvVar = {
+        id: `temp-${Date.now()}`,
+        project_id: projectId,
+        key: newEnvVar.key,
+        value: newEnvVar.value,
+        created_at: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData(['envVars', projectId], (old: EnvVar[] = []) => [
+        ...old,
+        optimisticEnvVar,
+      ]);
+
       setNewKey('');
       setNewValue('');
       setShowAddForm(false);
+
+      return { previousEnvVars };
+    },
+    onError: (_err, _newEnvVar, context) => {
+      if (context?.previousEnvVars) {
+        queryClient.setQueryData(['envVars', projectId], context.previousEnvVars);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['envVars', projectId] });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (envVarId: string) => envVarsApi.delete(projectId, envVarId),
-    onSuccess: () => {
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: ['envVars', projectId] });
+      const previousEnvVars = queryClient.getQueryData<EnvVar[]>(['envVars', projectId]);
+
+      queryClient.setQueryData(['envVars', projectId], (old: EnvVar[] = []) =>
+        old.filter((env) => env.id !== deletedId)
+      );
+
+      return { previousEnvVars };
+    },
+    onError: (_err, _deletedId, context) => {
+      if (context?.previousEnvVars) {
+        queryClient.setQueryData(['envVars', projectId], context.previousEnvVars);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['envVars', projectId] });
     },
   });
