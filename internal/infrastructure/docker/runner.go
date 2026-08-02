@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -129,6 +130,14 @@ func (c *Client) RemoveContainer(ctx context.Context, containerID string) error 
 	return c.ContainerRemove(ctx, containerID, container.RemoveOptions{
 		Force: true,
 	})
+}
+
+func (c *Client) RemoveImage(ctx context.Context, imageID string) error {
+	_, err := c.ImageRemove(ctx, imageID, image.RemoveOptions{
+		Force: true,
+		PruneChildren: true,
+	})
+	return err
 }
 
 func (c *Client) GetContainerLogs(ctx context.Context, containerID string, tail int) (string, error) {

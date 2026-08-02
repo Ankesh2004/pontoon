@@ -159,7 +159,7 @@ func (uc *ProjectUseCase) DeleteProject(ctx context.Context, userID, projectID s
 	}
 
 	for _, deployment := range deployments {
-		if deployment.ContainerID != "" && deployment.Status == domain.DeploymentStatusLive {
+		if deployment.ContainerID != "" {
 			slog.Info("stopping container for project deletion", "deployment_id", deployment.ID, "container_id", deployment.ContainerID)
 			
 			if err := uc.dockerClient.StopContainer(ctx, deployment.ContainerID); err != nil {
@@ -169,6 +169,13 @@ func (uc *ProjectUseCase) DeleteProject(ctx context.Context, userID, projectID s
 			if err := uc.dockerClient.RemoveContainer(ctx, deployment.ContainerID); err != nil {
 				slog.Warn("failed to remove container", "error", err, "container_id", deployment.ContainerID)
 			}
+		}
+
+		if deployment.DockerImage != "" {
+			// Best effort image cleanup
+			go func(img string) {
+				_ = uc.dockerClient.RemoveImage(context.Background(), img)
+			}(deployment.DockerImage)
 		}
 	}
 

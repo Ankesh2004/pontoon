@@ -1,14 +1,15 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { projectsApi, deploymentsApi } from '../../api/endpoints';
-import { EnvVarsManager } from '../env-vars/EnvVarsManager';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { ProjectSettingsTab } from './ProjectSettingsTab';
+import { ExternalLink, Loader2, Settings, Activity } from 'lucide-react';
 import { useState } from 'react';
 
 export function ProjectDetailPage() {
   const { projectId } = useParams({ strict: false }) as { projectId: string };
   const navigate = useNavigate();
   const [deployError, setDeployError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings'>('overview');
 
   const {
     data: project,
@@ -80,54 +81,82 @@ export function ProjectDetailPage() {
         </div>
       )}
 
-      <div className="border-border bg-card rounded-lg border p-6">
-        <h2 className="text-foreground mb-4 text-xl font-semibold">Configuration</h2>
-        <EnvVarsManager projectId={project.id} />
+      <div className="border-border border-b">
+        <nav className="-mb-px flex gap-6">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex items-center gap-2 border-b-2 py-4 text-sm font-medium transition-colors ${
+              activeTab === 'overview'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+            }`}
+          >
+            <Activity className="h-4 w-4" />
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex items-center gap-2 border-b-2 py-4 text-sm font-medium transition-colors ${
+              activeTab === 'settings'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+            }`}
+          >
+            <Settings className="h-4 w-4" />
+            Settings
+          </button>
+        </nav>
       </div>
 
-      <div className="border-border bg-card rounded-lg border p-6">
-        <h2 className="text-foreground mb-4 text-xl font-semibold">Webhook</h2>
-        <div className="space-y-3">
-          <div>
-            <label className="text-foreground mb-1 block text-sm font-medium">Webhook URL</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={`${window.location.origin}/webhooks/github?project_id=${project.id}`}
-                className="border-input bg-secondary text-foreground flex-1 rounded-md border px-3 py-2 font-mono text-sm"
-              />
-              <button
-                onClick={() =>
-                  navigator.clipboard.writeText(
-                    `${window.location.origin}/webhooks/github?project_id=${project.id}`
-                  )
-                }
-                className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
-              >
-                Copy
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="text-foreground mb-1 block text-sm font-medium">Webhook Secret</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={project.webhook_secret}
-                className="border-input bg-secondary text-foreground flex-1 rounded-md border px-3 py-2 font-mono text-sm"
-              />
-              <button
-                onClick={() => navigator.clipboard.writeText(project.webhook_secret)}
-                className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
-              >
-                Copy
-              </button>
+      {activeTab === 'overview' ? (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="border-border bg-card rounded-lg border p-6">
+            <h2 className="text-foreground mb-4 text-xl font-semibold">Webhook Configuration</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-foreground mb-1 block text-sm font-medium">Webhook URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.origin}/webhooks/github?project_id=${project.id}`}
+                    className="border-input bg-secondary text-foreground flex-1 rounded-md border px-3 py-2 font-mono text-sm"
+                  />
+                  <button
+                    onClick={() =>
+                      navigator.clipboard.writeText(
+                        `${window.location.origin}/webhooks/github?project_id=${project.id}`
+                      )
+                    }
+                    className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-foreground mb-1 block text-sm font-medium">Webhook Secret</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={project.webhook_secret}
+                    className="border-input bg-secondary text-foreground flex-1 rounded-md border px-3 py-2 font-mono text-sm"
+                  />
+                  <button
+                    onClick={() => navigator.clipboard.writeText(project.webhook_secret)}
+                    className="border-border text-foreground hover:bg-accent rounded-md border px-4 py-2 text-sm font-medium"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <ProjectSettingsTab project={project} />
+      )}
     </div>
   );
 }
