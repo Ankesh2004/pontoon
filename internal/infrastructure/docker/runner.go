@@ -25,17 +25,33 @@ type RunConfig struct {
 }
 
 func (c *Client) RunContainer(ctx context.Context, cfg RunConfig) (string, error) {
-	env := make([]string, 0, len(cfg.EnvVars))
+	// Enforce Strict PORT Contract
+	port := "8080" // Default industry standard port
+	if p, ok := cfg.EnvVars["PORT"]; ok && p != "" {
+		port = p
+	}
+
+	var env []string
+	hasPort := false
 	for k, v := range cfg.EnvVars {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
+		if k == "PORT" {
+			hasPort = true
+		}
 	}
+	
+	// Inject PORT if not explicitly provided in EnvVars
+	if !hasPort {
+		env = append(env, fmt.Sprintf("PORT=%s", port))
+	}
+
 
 	labels := GenerateContainerLabels(
 		cfg.TenantID,
 		cfg.ProjectID,
 		cfg.ProjectName,
 		cfg.Domain,
-		"80", // most containers (nginx etc) expose 80, not 8080
+		port,
 	)
 
 	hostConfig := &container.HostConfig{
@@ -77,7 +93,7 @@ func (c *Client) RunContainer(ctx context.Context, cfg RunConfig) (string, error
 		Env:    env,
 		Labels: labels,
 		ExposedPorts: map[nat.Port]struct{}{
-			"80/tcp": {},
+			nat.Port(port + "/tcp"): {},
 		},
 	}
 

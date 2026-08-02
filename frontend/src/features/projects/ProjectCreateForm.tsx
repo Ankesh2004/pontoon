@@ -13,6 +13,7 @@ export function ProjectCreateForm({ onClose }: ProjectCreateFormProps) {
     name: '',
     repo_url: '',
     branch: 'main',
+    port: '8080',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -104,6 +105,22 @@ export function ProjectCreateForm({ onClose }: ProjectCreateFormProps) {
               placeholder="main"
             />
             {errors.branch && <p className="text-destructive mt-1 text-sm">{errors.branch}</p>}
+          </div>
+
+          <div>
+            <label className="text-foreground mb-2 block text-sm font-medium">
+              Port
+              <span className="text-muted-foreground ml-2 font-normal text-xs" title="The port your application listens on. We will route external traffic to this port and inject it into your container as $PORT. Defaults to 8080.">
+                (Hover for info)
+              </span>
+            </label>
+            <input
+              type="text"
+              value={formData.port}
+              onChange={(e) => setFormData({ ...formData, port: e.target.value })}
+              className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              placeholder="8080"
+            />
           </div>
 
           {errors.submit && (

@@ -57,7 +57,7 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 
 	// Check capacity before starting
 	if err := p.capacityUC.CheckCapacity(ctx, p.maxMemoryMB); err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("capacity check failed: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("capacity check failed: %w", err), "")
 	}
 
 	// Update status to cloning
@@ -72,14 +72,14 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	// Create temp directory for clone
 	tmpDir, err := os.MkdirTemp("", "pontoon-build-*")
 	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("failed to create temp dir: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("failed to create temp dir: %w", err), "")
 	}
 	defer os.RemoveAll(tmpDir)
 
 	// Clone repository
 	repoDir := filepath.Join(tmpDir, "repo")
 	if err := p.cloneRepo(ctx, payload.RepoURL, payload.Branch, repoDir); err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("failed to clone repo: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("failed to clone repo: %w", err), "")
 	}
 	docker.PublishLog(ctx, p.redisClient, payload.DeploymentID, "==> Clone complete.")
 
@@ -96,6 +96,18 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	}
 	docker.PublishLog(ctx, p.redisClient, payload.DeploymentID, "==> Building Docker image...")
 
+	// Get environment variables
+	envVars, err := p.envVarRepo.GetByProjectID(payload.ProjectID)
+	if err != nil {
+		return p.failDeployment(ctx, payload.DeploymentID, "", "", fmt.Errorf("failed to get env vars: %w", err), "")
+	}
+
+	// Merge env vars
+	envMap := make(map[string]string)
+	for _, env := range envVars {
+		envMap[env.Key] = env.Value
+	}
+
 	// Build Docker image
 	imageTag := fmt.Sprintf("pontoon/%s:%s", payload.ProjectID, payload.DeploymentID)
 	buildOutput, err := p.dockerClient.BuildImage(ctx, docker.BuildConfig{
@@ -103,9 +115,10 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 		ImageTag:     imageTag,
 		DeploymentID: payload.DeploymentID,
 		RedisClient:  p.redisClient,
+		EnvVars:      envMap,
 	})
 	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to build image: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to build image: %w", err), buildOutput)
 	}
 
 	slog.Info("image built", "image", imageTag, "output_length", len(buildOutput))
@@ -115,25 +128,13 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 
 	// Update status to running
 	if err := p.deploymentRepo.UpdateStatus(payload.DeploymentID, domain.DeploymentStatusRunning, truncatedLogs); err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to update status: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to update status: %w", err), truncatedLogs)
 	}
 
 	// Get project details
 	project, err := p.projectRepo.GetByID(payload.ProjectID)
 	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to get project: %w", err))
-	}
-
-	// Get environment variables
-	envVars, err := p.envVarRepo.GetByProjectID(payload.ProjectID)
-	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to get env vars: %w", err))
-	}
-
-	// Merge env vars
-	envMap := make(map[string]string)
-	for _, env := range envVars {
-		envMap[env.Key] = env.Value
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to get project: %w", err), truncatedLogs)
 	}
 
 	// Run container
@@ -150,7 +151,7 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 		CPULimit:      0.5,
 	})
 	if err != nil {
-		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to run container: %w", err))
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to run container: %w", err), truncatedLogs)
 	}
 
 	// Stop existing live deployments for zero-downtime transition
@@ -193,7 +194,7 @@ func (p *DeployProcessor) cloneRepo(ctx context.Context, repoURL, branch, destDi
 	return nil
 }
 
-func (p *DeployProcessor) failDeployment(ctx context.Context, deploymentID, imageTag, containerID string, err error) error {
+func (p *DeployProcessor) failDeployment(ctx context.Context, deploymentID, imageTag, containerID string, err error, buildLogs string) error {
 	slog.Error("deployment failed", "deployment_id", deploymentID, "error", err)
 
 	// Cleanup container if it was created
@@ -215,13 +216,13 @@ func (p *DeployProcessor) failDeployment(ctx context.Context, deploymentID, imag
 		}
 	}
 
-	// Truncate error message to fit in database
-	errMsg := err.Error()
-	if len(errMsg) > 1000 {
-		errMsg = errMsg[:1000] + "... (truncated)"
+	finalLogs := err.Error()
+	if buildLogs != "" {
+		finalLogs = err.Error() + "\n\nBuild Logs:\n" + buildLogs
 	}
+	finalLogs = p.truncateLogs(finalLogs)
 
-	if updateErr := p.deploymentRepo.UpdateStatus(deploymentID, domain.DeploymentStatusFailed, errMsg); updateErr != nil {
+	if updateErr := p.deploymentRepo.UpdateStatus(deploymentID, domain.DeploymentStatusFailed, finalLogs); updateErr != nil {
 		slog.Error("failed to update deployment status", "error", updateErr)
 	}
 

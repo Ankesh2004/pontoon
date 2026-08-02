@@ -19,7 +19,7 @@ FROM builder AS worker-builder
 RUN CGO_ENABLED=0 GOOS=linux go build -o /worker ./cmd/worker
 
 # API runtime
-FROM alpine:3.19 AS api
+FROM alpine:3.21 AS api
 RUN apk add --no-cache ca-certificates git
 
 WORKDIR /app
@@ -31,8 +31,9 @@ EXPOSE 8080
 CMD ["./api"]
 
 # Worker runtime
-FROM alpine:3.19 AS worker
-RUN apk add --no-cache ca-certificates git docker-cli
+FROM alpine:3.21 AS worker
+RUN apk add --no-cache ca-certificates git docker-cli docker-cli-buildx curl bash tar
+RUN curl -sSL https://nixpacks.com/install.sh | bash
 
 WORKDIR /app
 COPY --from=worker-builder /worker .

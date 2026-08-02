@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -25,9 +27,16 @@ type BuildConfig struct {
 	WorkDir      string
 	DeploymentID string
 	RedisClient  *goredis.Client
+	EnvVars      map[string]string
 }
 
 func (c *Client) BuildImage(ctx context.Context, cfg BuildConfig) (string, error) {
+	dockerfilePath := filepath.Join(cfg.WorkDir, "Dockerfile")
+	if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
+		PublishLog(ctx, cfg.RedisClient, cfg.DeploymentID, "==> No Dockerfile found. Auto-building with Nixpacks...")
+		return c.buildWithNixpacks(ctx, cfg)
+	}
+
 	buildContext, err := createBuildContext(cfg.WorkDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to create build context: %w", err)
@@ -105,6 +114,47 @@ func PublishLog(ctx context.Context, redisClient *goredis.Client, deploymentID, 
 		redisClient.RPush(ctx, histKey, data)
 		redisClient.Expire(ctx, histKey, time.Hour)
 	}
+}
+
+func (c *Client) buildWithNixpacks(ctx context.Context, cfg BuildConfig) (string, error) {
+	args := []string{"build", cfg.WorkDir, "--name", cfg.ImageTag}
+	for k, v := range cfg.EnvVars {
+		args = append(args, "--env", fmt.Sprintf("%s=%s", k, v))
+	}
+
+	cmd := exec.CommandContext(ctx, "nixpacks", args...)
+	
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = pw
+
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to start nixpacks: %w", err)
+	}
+
+	var logs bytes.Buffer
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(pr)
+		for scanner.Scan() {
+			line := scanner.Text()
+			logs.WriteString(line + "\n")
+			PublishLog(ctx, cfg.RedisClient, cfg.DeploymentID, line)
+		}
+	}()
+
+	err := cmd.Wait()
+	pw.Close() // Close pipe so scanner finishes
+	wg.Wait()  // Wait for all logs to be flushed
+
+	if err != nil {
+		return logs.String(), fmt.Errorf("nixpacks build failed: %w", err)
+	}
+
+	return logs.String(), nil
 }
 
 func createBuildContext(contextDir string) (io.ReadCloser, error) {

@@ -26,6 +26,7 @@ type createProjectRequest struct {
 	Name    string `json:"name"`
 	RepoURL string `json:"repo_url"`
 	Branch  string `json:"branch"`
+	Port    string `json:"port"`
 }
 
 func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +56,7 @@ func (h *ProjectHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Name:    req.Name,
 		RepoURL: req.RepoURL,
 		Branch:  req.Branch,
+		Port:    req.Port,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

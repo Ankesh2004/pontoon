@@ -16,6 +16,7 @@ import (
 type ProjectUseCase struct {
 	projectRepo    domain.ProjectRepository
 	deploymentRepo domain.DeploymentRepository
+	envVarRepo     domain.EnvVarRepository
 	dockerClient   *docker.Client
 	defaultDomain  string
 }
@@ -23,12 +24,14 @@ type ProjectUseCase struct {
 func NewProjectUseCase(
 	projectRepo domain.ProjectRepository,
 	deploymentRepo domain.DeploymentRepository,
+	envVarRepo domain.EnvVarRepository,
 	dockerClient *docker.Client,
 	defaultDomain string,
 ) *ProjectUseCase {
 	return &ProjectUseCase{
 		projectRepo:    projectRepo,
 		deploymentRepo: deploymentRepo,
+		envVarRepo:     envVarRepo,
 		dockerClient:   dockerClient,
 		defaultDomain:  defaultDomain,
 	}
@@ -39,6 +42,7 @@ type CreateProjectInput struct {
 	Name      string
 	RepoURL   string
 	Branch    string
+	Port      string
 }
 
 func (uc *ProjectUseCase) CreateProject(ctx context.Context, input CreateProjectInput) (*domain.Project, error) {
@@ -67,6 +71,19 @@ func (uc *ProjectUseCase) CreateProject(ctx context.Context, input CreateProject
 	if err := uc.projectRepo.Create(project); err != nil {
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
+
+	// Create default PORT env var
+	portVal := input.Port
+	if portVal == "" {
+		portVal = "8080"
+	}
+	
+	_ = uc.envVarRepo.Create(&domain.EnvVar{
+		ID:        uuid.New().String(),
+		ProjectID: project.ID,
+		Key:       "PORT",
+		Value:     portVal,
+	})
 
 	return project, nil
 }
