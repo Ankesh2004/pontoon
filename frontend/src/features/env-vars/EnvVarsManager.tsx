@@ -2,15 +2,109 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { envVarsApi } from '../../api/endpoints';
 import type { EnvVar } from '../../types';
-import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
 
 interface EnvVarsManagerProps {
   projectId: string;
 }
 
+function EnvVarRow({ envVar, deleteMutation, updateMutation }: { 
+  envVar: EnvVar, 
+  deleteMutation: any, 
+  updateMutation: any 
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [showValue, setShowValue] = useState(false);
+  const [editKey, setEditKey] = useState(envVar.key);
+  const [editValue, setEditValue] = useState(envVar.value);
+
+  const handleUpdate = () => {
+    if (editKey.trim() && editValue.trim()) {
+      updateMutation.mutate({ envVarId: envVar.id, key: editKey, value: editValue }, {
+        onSuccess: () => setIsEditing(false)
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    setEditKey(envVar.key);
+    setEditValue(envVar.value);
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="border-border bg-card flex items-center gap-2 rounded-lg border p-3">
+        <input
+          type="text"
+          value={editKey}
+          onChange={(e) => setEditKey(e.target.value.toUpperCase())}
+          className="border-input bg-background text-foreground focus:border-primary focus:ring-primary w-1/3 rounded-md border px-2 py-1 font-mono text-sm focus:ring-1 focus:outline-none"
+        />
+        <span className="text-muted-foreground">=</span>
+        <input
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          className="border-input bg-background text-foreground focus:border-primary focus:ring-primary flex-1 rounded-md border px-2 py-1 font-mono text-sm focus:ring-1 focus:outline-none"
+        />
+        <button
+          onClick={handleUpdate}
+          disabled={updateMutation.isPending}
+          className="text-primary hover:text-primary/80 disabled:opacity-50"
+          title="Save"
+        >
+          <Check className="h-4 w-4" />
+        </button>
+        <button
+          onClick={handleCancel}
+          disabled={updateMutation.isPending}
+          className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+          title="Cancel"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-border bg-card flex items-center gap-3 rounded-lg border p-3">
+      <div className="flex-1 font-mono text-sm">
+        <span className="text-foreground font-semibold">{envVar.key}</span>
+        <span className="text-muted-foreground mx-2">=</span>
+        <span className="text-muted-foreground">
+          {showValue ? envVar.value : '••••••••••••••••'}
+        </span>
+      </div>
+      <button
+        onClick={() => setShowValue(!showValue)}
+        className="text-muted-foreground hover:text-foreground"
+        title={showValue ? 'Hide value' : 'Show value'}
+      >
+        {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+      <button
+        onClick={() => setIsEditing(true)}
+        className="text-muted-foreground hover:text-primary"
+        title="Edit variable"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => deleteMutation.mutate(envVar.id)}
+        disabled={deleteMutation.isPending}
+        className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+        title="Delete variable"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
   const queryClient = useQueryClient();
-  const [showValues, setShowValues] = useState<Record<string, boolean>>({});
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -77,15 +171,19 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (data: { envVarId: string; key: string; value: string }) =>
+      envVarsApi.update(projectId, data.envVarId, { key: data.key, value: data.value }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['envVars', projectId] });
+    },
+  });
+
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (newKey.trim() && newValue.trim()) {
       createMutation.mutate({ key: newKey, value: newValue });
     }
-  };
-
-  const toggleValueVisibility = (id: string) => {
-    setShowValues((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   if (isLoading) {
@@ -152,40 +250,15 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
         </form>
       )}
 
-      {envVars && envVars.length > 0 ? (
+      {envVars && envVars.filter(e => e.key !== 'PORT').length > 0 ? (
         <div className="space-y-2">
-          {envVars.map((envVar: EnvVar) => (
-            <div
-              key={envVar.id}
-              className="border-border bg-card flex items-center gap-3 rounded-lg border p-3"
-            >
-              <div className="flex-1 font-mono text-sm">
-                <span className="text-foreground font-semibold">{envVar.key}</span>
-                <span className="text-muted-foreground mx-2">=</span>
-                <span className="text-muted-foreground">
-                  {showValues[envVar.id] ? envVar.value : '••••••••••••••••'}
-                </span>
-              </div>
-              <button
-                onClick={() => toggleValueVisibility(envVar.id)}
-                className="text-muted-foreground hover:text-foreground"
-                title={showValues[envVar.id] ? 'Hide value' : 'Show value'}
-              >
-                {showValues[envVar.id] ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate(envVar.id)}
-                disabled={deleteMutation.isPending}
-                className="text-muted-foreground hover:text-destructive disabled:opacity-50"
-                title="Delete variable"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
+          {envVars.filter(e => e.key !== 'PORT').map((envVar: EnvVar) => (
+            <EnvVarRow 
+              key={envVar.id} 
+              envVar={envVar} 
+              deleteMutation={deleteMutation} 
+              updateMutation={updateMutation} 
+            />
           ))}
         </div>
       ) : (

@@ -34,6 +34,8 @@ export const envVarsApi = {
   list: (projectId: string) => api.get<EnvVar[]>(`/api/v1/projects/${projectId}/env`),
   create: (projectId: string, data: { key: string; value: string }) =>
     api.post<EnvVar>(`/api/v1/projects/${projectId}/env`, data),
+  update: (projectId: string, envVarId: string, data: { key: string; value: string }) =>
+    api.put<EnvVar>(`/api/v1/projects/${projectId}/env/${envVarId}`, data),
   delete: (projectId: string, envVarId: string) =>
     api.delete<void>(`/api/v1/projects/${projectId}/env/${envVarId}`),
 };

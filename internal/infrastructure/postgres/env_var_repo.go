@@ -60,13 +60,29 @@ func (r *EnvVarRepo) GetByID(id string) (*domain.EnvVar, error) {
 	err := r.pool.QueryRow(context.Background(), query, id).Scan(
 		&envVar.ID, &envVar.ProjectID, &envVar.Key, &envVar.Value, &envVar.CreatedAt,
 	)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, domain.ErrNotFound
-	}
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
 		return nil, err
 	}
 	return &envVar, nil
+}
+
+func (r *EnvVarRepo) Update(envVar *domain.EnvVar) error {
+	query := `
+		UPDATE env_vars
+		SET key = $1, value = $2
+		WHERE id = $3
+	`
+	tag, err := r.pool.Exec(context.Background(), query, envVar.Key, envVar.Value, envVar.ID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
 }
 
 func (r *EnvVarRepo) Delete(id string) error {

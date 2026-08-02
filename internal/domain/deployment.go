@@ -52,5 +52,6 @@ type EnvVarRepository interface {
 	Create(envVar *EnvVar) error
 	GetByProjectID(projectID string) ([]*EnvVar, error)
 	GetByID(id string) (*EnvVar, error)
+	Update(envVar *EnvVar) error
 	Delete(id string) error
 }

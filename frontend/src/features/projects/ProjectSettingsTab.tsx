@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { projectsApi } from '../../api/endpoints';
+import { projectsApi, envVarsApi } from '../../api/endpoints';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
 import { EnvVarsManager } from '../env-vars/EnvVarsManager';
 import type { Project } from '../../types';
@@ -13,20 +13,49 @@ interface ProjectSettingsTabProps {
 export function ProjectSettingsTab({ project }: ProjectSettingsTabProps) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   
-  const [editForm, setEditForm] = useState({
-    name: project.name,
-    branch: project.branch,
-  });
-  const [editError, setEditError] = useState<string | null>(null);
-
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
+  const { data: envVars } = useQuery({
+    queryKey: ['envVars', project.id],
+    queryFn: () => envVarsApi.list(project.id),
+  });
+
+  const portEnvVar = envVars?.find((e) => e.key === 'PORT');
+  const defaultPort = portEnvVar ? portEnvVar.value : '8080';
+
+  const [editForm, setEditForm] = useState({
+    name: project.name,
+    branch: project.branch,
+    port: defaultPort,
+  });
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Sync port state when envVars load
+  useEffect(() => {
+    if (portEnvVar && editForm.port !== portEnvVar.value) {
+      setEditForm(prev => ({ ...prev, port: portEnvVar.value }));
+    }
+  }, [portEnvVar]);
+
   const updateMutation = useMutation({
-    mutationFn: (data: Partial<Project>) => projectsApi.update(project.id, data),
+    mutationFn: async (data: typeof editForm) => {
+      // Update Project (name, branch)
+      await projectsApi.update(project.id, { name: data.name, branch: data.branch });
+      
+      // Update or Create PORT env var
+      if (portEnvVar) {
+        if (portEnvVar.value !== data.port) {
+          await envVarsApi.update(project.id, portEnvVar.id, { key: 'PORT', value: data.port });
+        }
+      } else {
+        await envVarsApi.create(project.id, { key: 'PORT', value: data.port });
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', project.id] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['envVars', project.id] });
       setEditError(null);
     },
     onError: (error: Error) => {
@@ -58,7 +87,10 @@ export function ProjectSettingsTab({ project }: ProjectSettingsTabProps) {
     },
   });
 
-  const isFormDirty = editForm.name !== project.name || editForm.branch !== project.branch;
+  const isFormDirty = 
+    editForm.name !== project.name || 
+    editForm.branch !== project.branch ||
+    editForm.port !== defaultPort;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -84,6 +116,19 @@ export function ProjectSettingsTab({ project }: ProjectSettingsTabProps) {
                 className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               />
             </div>
+          </div>
+          <div>
+            <label className="text-foreground mb-1 block text-sm font-medium">Application Port</label>
+            <input
+              type="text"
+              value={editForm.port}
+              onChange={(e) => setEditForm({ ...editForm, port: e.target.value })}
+              className="border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              placeholder="8080"
+            />
+            <p className="text-muted-foreground mt-1 text-xs">
+              The internal port your application listens on. (Default: 8080)
+            </p>
           </div>
           
           {editError && (

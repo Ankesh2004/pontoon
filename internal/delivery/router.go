@@ -108,6 +108,7 @@ func NewRouter(
 
 			r.Post("/{id}/env", envVarHandler.Create)
 			r.Get("/{id}/env", envVarHandler.List)
+			r.Put("/{id}/env/{envVarId}", envVarHandler.Update)
 			r.Delete("/{id}/env/{envVarId}", envVarHandler.Delete)
 		})
 

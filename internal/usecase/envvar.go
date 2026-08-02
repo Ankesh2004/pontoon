@@ -88,3 +88,36 @@ func (uc *EnvVarUseCase) DeleteEnvVar(ctx context.Context, userID, projectID, en
 
 	return nil
 }
+
+func (uc *EnvVarUseCase) UpdateEnvVar(ctx context.Context, userID, projectID, envVarID, key, value string) (*domain.EnvVar, error) {
+	project, err := uc.projectRepo.GetByID(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	if project.UserID != userID {
+		return nil, domain.ErrForbidden
+	}
+
+	envVar, err := uc.envVarRepo.GetByID(envVarID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get env var: %w", err)
+	}
+
+	if envVar.ProjectID != projectID {
+		return nil, domain.ErrNotFound
+	}
+
+	if key != "" {
+		envVar.Key = key
+	}
+	if value != "" {
+		envVar.Value = value
+	}
+
+	if err := uc.envVarRepo.Update(envVar); err != nil {
+		return nil, fmt.Errorf("failed to update env var: %w", err)
+	}
+
+	return envVar, nil
+}

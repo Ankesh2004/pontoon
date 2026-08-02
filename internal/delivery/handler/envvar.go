@@ -144,3 +144,51 @@ func (h *EnvVarHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+type updateEnvVarRequest struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+func (h *EnvVarHandler) Update(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	projectID := chi.URLParam(r, "id")
+	if projectID == "" {
+		http.Error(w, "project id required", http.StatusBadRequest)
+		return
+	}
+
+	envVarID := chi.URLParam(r, "envVarId")
+	if envVarID == "" {
+		http.Error(w, "env var id required", http.StatusBadRequest)
+		return
+	}
+
+	var req updateEnvVarRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	envVar, err := h.envVarUC.UpdateEnvVar(r.Context(), userID, projectID, envVarID, req.Key, req.Value)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(envVar)
+}
