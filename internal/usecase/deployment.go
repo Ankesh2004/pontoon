@@ -124,9 +124,36 @@ func (uc *DeploymentUseCase) StopDeployment(ctx context.Context, userID, deploym
 		if err := uc.dockerClient.StopContainer(ctx, deployment.ContainerID); err != nil {
 			return fmt.Errorf("failed to stop container: %w", err)
 		}
-		if err := uc.dockerClient.RemoveContainer(ctx, deployment.ContainerID); err != nil {
-			return fmt.Errorf("failed to remove container: %w", err)
-		}
+	}
+
+	deployment.Status = domain.DeploymentStatusStopped
+	if err := uc.deploymentRepo.Update(deployment); err != nil {
+		return fmt.Errorf("failed to update deployment status: %w", err)
+	}
+
+	return nil
+}
+
+func (uc *DeploymentUseCase) DeleteDeployment(ctx context.Context, userID, deploymentID string) error {
+	deployment, err := uc.deploymentRepo.GetByID(deploymentID)
+	if err != nil {
+		return err
+	}
+
+	if deployment.UserID != userID {
+		return domain.ErrForbidden
+	}
+
+	if deployment.ContainerID != "" {
+		_ = uc.dockerClient.StopContainer(ctx, deployment.ContainerID)
+		_ = uc.dockerClient.RemoveContainer(ctx, deployment.ContainerID)
+	}
+
+	if deployment.DockerImage != "" {
+		// Best effort image removal
+		go func() {
+			_ = uc.dockerClient.RemoveImage(context.Background(), deployment.DockerImage)
+		}()
 	}
 
 	if err := uc.deploymentRepo.Delete(deploymentID); err != nil {

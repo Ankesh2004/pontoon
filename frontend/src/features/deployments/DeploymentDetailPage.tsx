@@ -18,9 +18,11 @@ import {
   Terminal,
   Copy,
   Activity,
+  Trash2,
 } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { Button } from '../../components/ui/button';
+import { Skeleton } from '../../components/ui/skeleton';
 
 // --- Status config ---
 const STATUS_CONFIG = {
@@ -192,7 +194,15 @@ export function DeploymentDetailPage() {
   const stopMutation = useMutation({
     mutationFn: () => deploymentsApi.stop(deploymentId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['deployments', deployment?.project_id] });
+      queryClient.invalidateQueries({ queryKey: ['deployment', deploymentId] });
+      queryClient.invalidateQueries({ queryKey: ['deployments'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deploymentsApi.delete(deploymentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deployments'] });
       navigate({ to: '/projects/$projectId', params: { projectId: deployment!.project_id } });
     },
   });
@@ -203,9 +213,30 @@ export function DeploymentDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="text-muted-foreground flex h-64 items-center justify-center gap-3">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        <span>Loading deployment…</span>
+      <div className="-m-6 flex h-[calc(100vh-4rem)] flex-col gap-0 overflow-hidden">
+        <div className="border-border bg-card flex shrink-0 items-center gap-4 border-b px-6 py-3">
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-4 w-24" />
+          <div className="ml-auto flex items-center gap-3">
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-9 w-20" />
+          </div>
+        </div>
+        <div className="flex flex-1 overflow-hidden">
+          <div className="bg-card w-80 shrink-0 border-r p-6">
+            <div className="space-y-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="mb-2 h-4 w-24" />
+                  <Skeleton className="h-5 w-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 bg-black p-4">
+            <Skeleton className="h-full w-full rounded-md bg-zinc-900" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -246,20 +277,22 @@ export function DeploymentDetailPage() {
         <span className="text-muted-foreground font-mono text-sm">{deployment.id.slice(0, 8)}</span>
         <div className="ml-auto flex items-center gap-3">
           <StatusBadge status={status} />
+          {isLive && (
+            <Button
+              variant="destructive"
+              onClick={() => stopMutation.mutate()}
+              disabled={stopMutation.isPending}
+            >
+              {stopMutation.isPending ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Square className="mr-2 h-3.5 w-3.5" />
+              )}
+              {stopMutation.isPending ? 'Stopping…' : 'Stop'}
+            </Button>
+          )}
           {isLive && deploymentUrl && (
             <>
-              <Button
-                variant="destructive"
-                onClick={() => stopMutation.mutate()}
-                disabled={stopMutation.isPending}
-              >
-                {stopMutation.isPending ? (
-                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Square className="mr-2 h-3.5 w-3.5" />
-                )}
-                {stopMutation.isPending ? 'Stopping…' : 'Stop'}
-              </Button>
               <a
                 href={deploymentUrl}
                 target="_blank"
@@ -276,6 +309,25 @@ export function DeploymentDetailPage() {
             <div className="border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm">
               <XCircle className="h-3.5 w-3.5" /> Deployment Failed
             </div>
+          )}
+          {!['pending', 'cloning', 'building', 'running'].includes(status) && (
+            <Button
+              variant="outline"
+              className="text-destructive hover:bg-destructive hover:text-destructive-foreground border-destructive"
+              onClick={() => {
+                if (window.confirm('Are you sure you want to delete this deployment? This action cannot be undone.')) {
+                  deleteMutation.mutate();
+                }
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+              )}
+              Delete
+            </Button>
           )}
         </div>
       </div>

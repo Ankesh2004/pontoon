@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { deploymentsApi } from '../../api/endpoints';
 import type { Deployment } from '../../types';
 import { Rocket, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Skeleton } from '../../components/ui/skeleton';
 
 export function DeploymentsPage() {
   // Adaptive polling: check every 2s if any deployment is active, otherwise 30s
@@ -36,7 +37,19 @@ export function DeploymentsPage() {
   });
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading deployments...</div>;
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (!deployments || deployments.length === 0) {

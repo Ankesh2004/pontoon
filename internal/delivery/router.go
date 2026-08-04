@@ -115,6 +115,7 @@ func NewRouter(
 		r.Route("/deployments", func(r chi.Router) {
 			r.Get("/{deploymentId}", deploymentHandler.Get)
 			r.Post("/{deploymentId}/stop", deploymentHandler.Stop)
+			r.Delete("/{deploymentId}", deploymentHandler.Delete)
 			r.Get("/{deploymentId}/logs", logHandler.GetRuntimeLogs)
 		})
 	})

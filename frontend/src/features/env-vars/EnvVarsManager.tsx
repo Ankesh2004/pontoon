@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { envVarsApi } from '../../api/endpoints';
 import type { EnvVar } from '../../types';
 import { Eye, EyeOff, Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Skeleton } from '../../components/ui/skeleton';
 
 interface EnvVarsManagerProps {
   projectId: string;
@@ -187,7 +188,19 @@ export function EnvVarsManager({ projectId }: EnvVarsManagerProps) {
   };
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading environment variables...</div>;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-8 w-32" />
+        </div>
+        <div className="space-y-2">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

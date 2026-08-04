@@ -3,6 +3,7 @@ import { useParams, useNavigate } from '@tanstack/react-router';
 import { projectsApi, deploymentsApi } from '../../api/endpoints';
 import { ProjectSettingsTab } from './ProjectSettingsTab';
 import { ExternalLink, Loader2, Settings, Activity } from 'lucide-react';
+import { Skeleton } from '../../components/ui/skeleton';
 import { useState } from 'react';
 
 export function ProjectDetailPage() {
@@ -37,7 +38,18 @@ export function ProjectDetailPage() {
   };
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading project...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-9 w-48 mb-2" />
+            <Skeleton className="h-5 w-64" />
+          </div>
+          <Skeleton className="h-10 w-24" />
+        </div>
+        <Skeleton className="h-[400px] w-full rounded-lg" />
+      </div>
+    );
   }
 
   if (error || !project) {

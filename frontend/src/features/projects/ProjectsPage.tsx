@@ -4,6 +4,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { deploymentsApi, projectsApi } from '../../api/endpoints';
 import type { Project } from '../../types';
 import { FolderGit2, ExternalLink, Loader2, Rocket } from 'lucide-react';
+import { Skeleton } from '../../components/ui/skeleton';
 import { ProjectCreateForm } from './ProjectCreateForm';
 
 function deploymentUrl(domain: string) {
@@ -131,7 +132,19 @@ export function ProjectsPage() {
   });
 
   if (isLoading) {
-    return <div className="text-muted-foreground">Loading projects...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-48 w-full rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {

@@ -28,6 +28,7 @@ export const deploymentsApi = {
       commit_sha: commitSha,
     }),
   stop: (id: string) => api.post<{ status: string }>(`/api/v1/deployments/${id}/stop`),
+  delete: (id: string) => api.delete<void>(`/api/v1/deployments/${id}`),
 };
 
 export const envVarsApi = {
