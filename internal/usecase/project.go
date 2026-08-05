@@ -8,8 +8,10 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"golang.org/x/oauth2"
 
 	"github.com/Ankesh2004/pontoon/internal/domain"
+	gh "github.com/Ankesh2004/pontoon/internal/infrastructure/github"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 )
 
@@ -17,23 +19,29 @@ type ProjectUseCase struct {
 	projectRepo    domain.ProjectRepository
 	deploymentRepo domain.DeploymentRepository
 	envVarRepo     domain.EnvVarRepository
+	userRepo       domain.UserRepository
 	dockerClient   *docker.Client
 	defaultDomain  string
+	apiURL         string
 }
 
 func NewProjectUseCase(
 	projectRepo domain.ProjectRepository,
 	deploymentRepo domain.DeploymentRepository,
 	envVarRepo domain.EnvVarRepository,
+	userRepo domain.UserRepository,
 	dockerClient *docker.Client,
 	defaultDomain string,
+	apiURL string,
 ) *ProjectUseCase {
 	return &ProjectUseCase{
 		projectRepo:    projectRepo,
 		deploymentRepo: deploymentRepo,
 		envVarRepo:     envVarRepo,
+		userRepo:       userRepo,
 		dockerClient:   dockerClient,
 		defaultDomain:  defaultDomain,
+		apiURL:         apiURL,
 	}
 }
 
@@ -84,6 +92,29 @@ func (uc *ProjectUseCase) CreateProject(ctx context.Context, input CreateProject
 		Key:       "PORT",
 		Value:     portVal,
 	})
+
+	// Try to auto-register webhook
+	go func() {
+		user, err := uc.userRepo.GetByID(input.UserID)
+		if err != nil || user == nil || user.AccessToken == "" {
+			slog.Warn("skipping webhook auto-registration: could not get user access token", "project_id", project.ID)
+			return
+		}
+
+		// Create github client with user's token
+		token := &oauth2.Token{AccessToken: user.AccessToken}
+		ghClient := gh.NewClient(context.Background(), token)
+
+		webhookURL := fmt.Sprintf("%s/webhooks/github?project_id=%s", uc.apiURL, project.ID)
+		
+		err = ghClient.CreateWebhook(context.Background(), owner, name, webhookURL, webhookSecret)
+		if err != nil {
+			slog.Warn("could not auto-register webhook", "project_id", project.ID, "error", err)
+			return
+		}
+
+		slog.Info("successfully auto-registered webhook", "project_id", project.ID)
+	}()
 
 	return project, nil
 }

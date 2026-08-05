@@ -53,3 +53,24 @@ func (c *Client) toDomainUser(ghUser *github.User) *domain.User {
 		AvatarURL:      ghUser.GetAvatarURL(),
 	}
 }
+
+func (c *Client) CreateWebhook(ctx context.Context, owner, repo, webhookURL, webhookSecret string) error {
+	hook := &github.Hook{
+		Name:   github.String("web"),
+		Active: github.Bool(true),
+		Events: []string{"push"},
+		Config: &github.HookConfig{
+			URL:          github.String(webhookURL),
+			ContentType:  github.String("json"),
+			Secret:       github.String(webhookSecret),
+			InsecureSSL:  github.String("0"),
+		},
+	}
+
+	_, _, err := c.client.Repositories.CreateHook(ctx, owner, repo, hook)
+	if err != nil {
+		return fmt.Errorf("failed to create webhook: %w", err)
+	}
+
+	return nil
+}

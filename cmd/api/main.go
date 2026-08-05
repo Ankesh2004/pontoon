@@ -90,7 +90,7 @@ func run(ctx context.Context) error {
 
 	authUC := usecase.NewAuthUseCase(oauthService, userRepo, cfg.JWT.Secret)
 	userUC := usecase.NewUserUseCase(userRepo)
-	projectUC := usecase.NewProjectUseCase(projectRepo, deploymentRepo, envVarRepo, dockerClient, cfg.Domain.Default)
+	projectUC := usecase.NewProjectUseCase(projectRepo, deploymentRepo, envVarRepo, userRepo, dockerClient, cfg.Domain.Default, cfg.API.URL)
 	deploymentUC := usecase.NewDeploymentUseCase(deploymentRepo, projectRepo, asynqClient, dockerClient)
 	envVarUC := usecase.NewEnvVarUseCase(envVarRepo, projectRepo)
 	webhookUC := usecase.NewWebhookUseCase(projectRepo, deploymentRepo, envVarRepo, asynqClient)
