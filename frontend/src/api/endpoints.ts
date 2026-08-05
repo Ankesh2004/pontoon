@@ -40,3 +40,25 @@ export const envVarsApi = {
   delete: (projectId: string, envVarId: string) =>
     api.delete<void>(`/api/v1/projects/${projectId}/env/${envVarId}`),
 };
+
+export interface AIPipelineContext {
+  pipeline_id: string;
+  project_id: string;
+  deployment_id: string;
+  parsed_error?: string;
+  root_cause?: string;
+  proposed_patch?: string;
+  security_passed: boolean;
+  confidence_score?: number;
+}
+
+export const aiPipelinesApi = {
+  recover: (deploymentId: string, projectId: string, rawLogs: string) => 
+    api.post<{ pipeline_id: string; status: string }>(`/api/v1/deployments/${deploymentId}/recover`, {
+      project_id: projectId,
+      raw_logs: rawLogs,
+    }),
+  get: (pipelineId: string) => api.get<AIPipelineContext>(`/api/v1/pipelines/${pipelineId}`),
+  approve: (pipelineId: string) => api.post<{ status: string }>(`/api/v1/pipelines/${pipelineId}/approve`),
+  reject: (pipelineId: string) => api.post<{ status: string }>(`/api/v1/pipelines/${pipelineId}/reject`),
+};

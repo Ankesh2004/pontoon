@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { deploymentsApi, projectsApi } from '../../api/endpoints';
+import { deploymentsApi, projectsApi, aiPipelinesApi, AIPipelineContext } from '../../api/endpoints';
+import { ReviewCard } from '../../components/AI/ReviewCard';
 import { useState, useCallback } from 'react';
 import { TerminalView } from '../logs/TerminalView';
 import {
@@ -19,6 +20,7 @@ import {
   Copy,
   Activity,
   Trash2,
+  Wand2,
 } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { Button } from '../../components/ui/button';
@@ -170,6 +172,7 @@ function InfoCard({
 export function DeploymentDetailPage() {
   const { deploymentId } = useParams({ strict: false }) as { deploymentId: string };
   const [connectionStatus, setConnectionStatus] = useState<string>('connecting');
+  const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -189,6 +192,41 @@ export function DeploymentDetailPage() {
     queryKey: ['project', deployment?.project_id],
     queryFn: () => projectsApi.get(deployment!.project_id),
     enabled: !!deployment?.project_id,
+  });
+
+  const { data: pipelineContext, isLoading: isPipelineLoading } = useQuery({
+    queryKey: ['pipeline', activePipelineId],
+    queryFn: () => aiPipelinesApi.get(activePipelineId!),
+    enabled: !!activePipelineId,
+    refetchInterval: (query) => {
+      // Keep polling if it hasn't succeeded or rejected yet (assuming it doesn't return that it failed immediately without status in context)
+      // Actually, our API just returns the context. Let's poll until we have proposed_patch or security_passed.
+      const data = query.state.data;
+      return data?.proposed_patch ? false : 2000;
+    },
+  });
+
+  const recoverMutation = useMutation({
+    mutationFn: () => aiPipelinesApi.recover(deploymentId, deployment!.project_id, deployment!.build_logs || ''),
+    onSuccess: (data) => {
+      setActivePipelineId(data.pipeline_id);
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (pipelineId: string) => aiPipelinesApi.approve(pipelineId),
+    onSuccess: () => {
+      setActivePipelineId(null);
+      // Re-trigger deploy for simplicity (in a real app, backend would commit and trigger automatically)
+      queryClient.invalidateQueries({ queryKey: ['deployments'] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (pipelineId: string) => aiPipelinesApi.reject(pipelineId),
+    onSuccess: () => {
+      setActivePipelineId(null);
+    },
   });
 
   const stopMutation = useMutation({
@@ -306,8 +344,23 @@ export function DeploymentDetailPage() {
             </>
           )}
           {status === 'failed' && (
-            <div className="border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm">
-              <XCircle className="h-3.5 w-3.5" /> Deployment Failed
+            <div className="flex items-center gap-3">
+              <div className="border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm">
+                <XCircle className="h-3.5 w-3.5" /> Deployment Failed
+              </div>
+              <Button
+                variant="default"
+                className="bg-indigo-500 hover:bg-indigo-600 text-white"
+                onClick={() => recoverMutation.mutate()}
+                disabled={recoverMutation.isPending || !!activePipelineId}
+              >
+                {recoverMutation.isPending ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Wand2 className="mr-2 h-3.5 w-3.5" />
+                )}
+                Recover Build
+              </Button>
             </div>
           )}
           {!['pending', 'cloning', 'building', 'running'].includes(status) && (
@@ -418,6 +471,19 @@ export function DeploymentDetailPage() {
                 </span>
               </div>
             </div>
+            
+            {/* AI Review Card */}
+            {activePipelineId && pipelineContext && (
+              <div className="px-4 bg-gray-900 border-b border-gray-800">
+                <ReviewCard 
+                  pipelineId={activePipelineId}
+                  context={pipelineContext}
+                  onApprove={() => approveMutation.mutate(activePipelineId)}
+                  onReject={() => rejectMutation.mutate(activePipelineId)}
+                />
+              </div>
+            )}
+            
             {/* Terminal Container */}
             <div className="flex-1 overflow-hidden bg-black">
               <TerminalView 

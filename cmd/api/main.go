@@ -95,7 +95,7 @@ func run(ctx context.Context) error {
 	envVarUC := usecase.NewEnvVarUseCase(envVarRepo, projectRepo)
 	webhookUC := usecase.NewWebhookUseCase(projectRepo, deploymentRepo, envVarRepo, asynqClient)
 
-	router := delivery.NewRouter(cfg, authUC, userUC, projectUC, deploymentUC, envVarUC, webhookUC, redisClient, dockerClient)
+	router := delivery.NewRouter(cfg, authUC, userUC, projectUC, deploymentUC, envVarUC, webhookUC, redisClient, dockerClient, pool)
 
 	server := &http.Server{
 		Addr:         cfg.API.Addr,

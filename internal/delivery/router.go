@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/gorilla/csrf"
+	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/Ankesh2004/pontoon/internal/config"
@@ -31,6 +32,7 @@ func NewRouter(
 	webhookUC *usecase.WebhookUseCase,
 	redisClient *goredis.Client,
 	dockerClient *docker.Client,
+	dbPool *pgxpool.Pool, // Added DB pool for AI handler
 ) *Router {
 	r := chi.NewRouter()
 
@@ -47,6 +49,7 @@ func NewRouter(
 	webhookHandler := handler.NewWebhookHandler(webhookUC)
 	wsHandler := handler.NewWebSocketHandler(deploymentUC, redisClient)
 	logHandler := handler.NewLogHandler(deploymentUC, dockerClient)
+	aiHandler := handler.NewAIHandler(dbPool) // Initialize AI Handler
 
 	// Extract hostnames for CSRF trusted origins
 	var trustedOrigins []string
@@ -117,6 +120,13 @@ func NewRouter(
 			r.Post("/{deploymentId}/stop", deploymentHandler.Stop)
 			r.Delete("/{deploymentId}", deploymentHandler.Delete)
 			r.Get("/{deploymentId}/logs", logHandler.GetRuntimeLogs)
+			r.Post("/{deploymentId}/recover", aiHandler.RecoverBuild) // Trigger AI Recovery
+		})
+
+		r.Route("/pipelines", func(r chi.Router) {
+			r.Get("/{pipelineId}", aiHandler.GetPipeline)
+			r.Post("/{pipelineId}/approve", aiHandler.ApprovePipeline)
+			r.Post("/{pipelineId}/reject", aiHandler.RejectPipeline)
 		})
 	})
 
