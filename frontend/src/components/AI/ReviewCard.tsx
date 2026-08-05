@@ -13,7 +13,7 @@ interface ReviewCardProps {
   onReject: () => void;
 }
 
-export function ReviewCard({ pipelineId, context, onApprove, onReject }: ReviewCardProps) {
+export function ReviewCard({ context, onApprove, onReject }: ReviewCardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleApprove = async () => {

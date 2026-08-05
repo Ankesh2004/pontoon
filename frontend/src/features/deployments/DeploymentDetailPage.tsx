@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { deploymentsApi, projectsApi, aiPipelinesApi, AIPipelineContext } from '../../api/endpoints';
+import { deploymentsApi, projectsApi, aiPipelinesApi } from '../../api/endpoints';
 import { ReviewCard } from '../../components/AI/ReviewCard';
 import { useState, useCallback } from 'react';
 import { TerminalView } from '../logs/TerminalView';
