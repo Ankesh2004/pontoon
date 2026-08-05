@@ -194,7 +194,7 @@ export function DeploymentDetailPage() {
     enabled: !!deployment?.project_id,
   });
 
-  const { data: pipelineContext, isLoading: isPipelineLoading } = useQuery({
+  const { data: pipelineContext } = useQuery({
     queryKey: ['pipeline', activePipelineId],
     queryFn: () => aiPipelinesApi.get(activePipelineId!),
     enabled: !!activePipelineId,
