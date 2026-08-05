@@ -10,8 +10,8 @@ func isLocalDomain(domain string) bool {
 	return strings.Contains(domain, "localhost") || strings.Contains(domain, "127.0.0.1")
 }
 
-func GenerateTraefikLabels(projectName, domain, containerPort string) map[string]string {
-	sanitized := sanitizeName(projectName)
+func GenerateTraefikLabels(projectName, projectID, domain, containerPort string) map[string]string {
+	sanitized := sanitizeName(projectName) + "-" + projectID[:8]
 
 	// localhost can't do TLS, so we use the plain HTTP entrypoint
 	entrypoint := "websecure"
@@ -37,7 +37,7 @@ func GenerateTraefikLabels(projectName, domain, containerPort string) map[string
 }
 
 func GenerateContainerLabels(tenantID, projectID, projectName, domain, containerPort string) map[string]string {
-	labels := GenerateTraefikLabels(projectName, domain, containerPort)
+	labels := GenerateTraefikLabels(projectName, projectID, domain, containerPort)
 	
 	labels["pontoon.tenant"] = tenantID
 	labels["pontoon.project-id"] = projectID
