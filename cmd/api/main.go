@@ -67,7 +67,7 @@ func run(ctx context.Context) error {
 	oauthService := github.NewOAuthService(github.OAuthConfig{
 		ClientID:     cfg.GitHub.ClientID,
 		ClientSecret: cfg.GitHub.ClientSecret,
-		RedirectURL:  fmt.Sprintf("http://localhost%s/auth/callback", cfg.API.Addr),
+		RedirectURL:  fmt.Sprintf("%s/auth/callback", cfg.API.URL),
 	})
 
 	asynqClient, err := redis.NewAsynqClient(cfg.Redis.URL)

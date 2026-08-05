@@ -26,6 +26,7 @@ type CORSConfig struct {
 
 type APIConfig struct {
 	Addr string
+	URL  string
 }
 
 type DatabaseConfig struct {
@@ -62,6 +63,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		API: APIConfig{
 			Addr: getEnv("API_ADDR", ":8080"),
+			URL:  getEnv("API_URL", "http://localhost:8080"),
 		},
 		Database: DatabaseConfig{
 			URL: getEnv("DATABASE_URL", ""),
