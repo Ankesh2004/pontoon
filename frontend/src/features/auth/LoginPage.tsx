@@ -3,7 +3,8 @@ import { Button } from '../../components/ui/button';
 
 export function LoginPage() {
   const handleLogin = () => {
-    window.location.href = '/auth/github';
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    window.location.href = `${apiBase}/auth/github`;
   };
 
   return (
