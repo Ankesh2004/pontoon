@@ -120,8 +120,13 @@ export function TerminalView({ deploymentId, status, buildLogs, onConnectionChan
         authApi.wsTicket()
           .then(({ ticket }) => {
             if (cancelled) return;
+            const apiBase = import.meta.env.VITE_API_URL || '';
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const url = `${protocol}//${window.location.host}/api/v1/deployments/${deploymentId}/ws?ticket=${encodeURIComponent(ticket)}`;
+            const wsBase = apiBase 
+              ? apiBase.replace('http', 'ws') 
+              : `${protocol}//api.34.139.115.65.nip.io`; // Hardcoded fallback for Vercel Proxy
+              
+            const url = `${wsBase}/api/v1/deployments/${deploymentId}/ws?ticket=${encodeURIComponent(ticket)}`;
             
             socket = new WebSocket(url);
 

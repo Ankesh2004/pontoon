@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/auth/(.*)",
+      "destination": "https://api.34.139.115.65.nip.io/auth/$1"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "https://api.34.139.115.65.nip.io/api/$1"
+    },
+    {
+      "source": "/webhooks/(.*)",
+      "destination": "https://api.34.139.115.65.nip.io/webhooks/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
