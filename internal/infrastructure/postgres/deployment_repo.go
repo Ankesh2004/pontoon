@@ -107,6 +107,36 @@ func (r *DeploymentRepo) GetActiveByProjectID(projectID string) ([]*domain.Deplo
 	return deployments, nil
 }
 
+func (r *DeploymentRepo) GetStuck(timeoutMinutes int) ([]*domain.Deployment, error) {
+	query := `
+		SELECT id, project_id, user_id, status, commit_sha, docker_image, container_id, container_name, memory_limit_mb, build_logs, triggered_by, created_at, updated_at
+		FROM deployments 
+		WHERE status IN ('cloning', 'building', 'running') 
+		AND updated_at < NOW() - ($1 || ' minutes')::INTERVAL
+		ORDER BY created_at DESC
+	`
+	rows, err := r.pool.Query(context.Background(), query, timeoutMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var deployments []*domain.Deployment
+	for rows.Next() {
+		var deployment domain.Deployment
+		if err := rows.Scan(
+			&deployment.ID, &deployment.ProjectID, &deployment.UserID, &deployment.Status,
+			&deployment.CommitSHA, &deployment.DockerImage, &deployment.ContainerID,
+			&deployment.ContainerName, &deployment.MemoryLimitMB, &deployment.BuildLogs,
+			&deployment.TriggeredBy, &deployment.CreatedAt, &deployment.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		deployments = append(deployments, &deployment)
+	}
+	return deployments, nil
+}
+
 func (r *DeploymentRepo) GetByUserID(userID string) ([]*domain.Deployment, error) {
 	query := `
 		SELECT id, project_id, user_id, status, commit_sha, docker_image, container_id, container_name, memory_limit_mb, build_logs, triggered_by, created_at, updated_at

@@ -35,6 +35,7 @@ type DeploymentRepository interface {
 	GetByID(id string) (*Deployment, error)
 	GetByProjectID(projectID string) ([]*Deployment, error)
 	GetActiveByProjectID(projectID string) ([]*Deployment, error)
+	GetStuck(timeoutMinutes int) ([]*Deployment, error)
 	GetByUserID(userID string) ([]*Deployment, error)
 	Update(deployment *Deployment) error
 	UpdateStatus(id string, status DeploymentStatus, logs string) error

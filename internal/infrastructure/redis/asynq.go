@@ -34,6 +34,16 @@ func NewAsynqServer(redisURL string, concurrency int) (*asynq.Server, error) {
 	return server, nil
 }
 
+func NewAsynqScheduler(redisURL string) (*asynq.Scheduler, error) {
+	opts, err := parseRedisURL(redisURL)
+	if err != nil {
+		return nil, err
+	}
+
+	scheduler := asynq.NewScheduler(opts, nil)
+	return scheduler, nil
+}
+
 func parseRedisURL(redisURL string) (asynq.RedisClientOpt, error) {
 	// Parse redis:// URL format
 	// Format: redis://[:password@]host[:port][/db]

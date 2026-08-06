@@ -21,6 +21,7 @@ func NewProcessor(redisURL string, concurrency int, deployProcessor *DeployProce
 
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeDeploy, deployProcessor.ProcessDeployTask)
+	mux.HandleFunc(tasks.TypeReapStuck, deployProcessor.ProcessReapStuckTask)
 
 	return &Processor{
 		server: server,

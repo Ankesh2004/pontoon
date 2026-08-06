@@ -9,11 +9,13 @@ import (
 	"syscall"
 
 	"github.com/joho/godotenv"
+	"github.com/hibiken/asynq"
 
 	"github.com/Ankesh2004/pontoon/internal/config"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/postgres"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/redis"
+	"github.com/Ankesh2004/pontoon/internal/tasks"
 	"github.com/Ankesh2004/pontoon/internal/usecase"
 	"github.com/Ankesh2004/pontoon/internal/worker"
 )
@@ -108,6 +110,24 @@ func run(ctx context.Context) error {
 		}
 	}()
 
+	// Initialize Scheduler
+	scheduler, err := redis.NewAsynqScheduler(cfg.Redis.URL)
+	if err != nil {
+		return fmt.Errorf("failed to initialize scheduler: %w", err)
+	}
+
+	reaperTask := asynq.NewTask(tasks.TypeReapStuck, nil)
+	_, err = scheduler.Register("*/5 * * * *", reaperTask)
+	if err != nil {
+		return fmt.Errorf("failed to register reaper task: %w", err)
+	}
+
+	go func() {
+		if err := scheduler.Start(); err != nil {
+			slog.Error("scheduler error", "error", err)
+		}
+	}()
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
@@ -120,6 +140,7 @@ func run(ctx context.Context) error {
 		slog.Info("received signal", "signal", sig)
 	}
 
+	scheduler.Shutdown()
 	processor.Stop()
 	slog.Info("worker stopped")
 	return nil

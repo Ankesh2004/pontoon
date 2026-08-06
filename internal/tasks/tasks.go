@@ -3,7 +3,8 @@ package tasks
 import "encoding/json"
 
 const (
-	TypeDeploy = "deploy"
+	TypeDeploy    = "deploy"
+	TypeReapStuck = "deployments:reap"
 )
 
 type DeployPayload struct {
