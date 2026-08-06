@@ -20,6 +20,7 @@ type RunConfig struct {
 	TenantID      string
 	ProjectID     string
 	ProjectName   string
+	DeploymentID  string
 	Domain        string
 	MemoryLimitMB int
 	CPULimit      float64
@@ -51,6 +52,7 @@ func (c *Client) RunContainer(ctx context.Context, cfg RunConfig) (string, error
 		cfg.TenantID,
 		cfg.ProjectID,
 		cfg.ProjectName,
+		cfg.DeploymentID,
 		cfg.Domain,
 		port,
 	)

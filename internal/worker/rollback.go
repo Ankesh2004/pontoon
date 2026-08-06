@@ -63,6 +63,7 @@ func (p *DeployProcessor) ProcessRollbackTask(ctx context.Context, t *asynq.Task
 		TenantID:      payload.UserID,
 		ProjectID:     payload.ProjectID,
 		ProjectName:   project.Name,
+		DeploymentID:  payload.DeploymentID,
 		Domain:        payload.Domain,
 		MemoryLimitMB: p.maxMemoryMB,
 		CPULimit:      1.0,

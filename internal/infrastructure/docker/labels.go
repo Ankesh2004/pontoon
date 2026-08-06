@@ -36,11 +36,12 @@ func GenerateTraefikLabels(projectName, projectID, domain, containerPort string)
 	return labels
 }
 
-func GenerateContainerLabels(tenantID, projectID, projectName, domain, containerPort string) map[string]string {
+func GenerateContainerLabels(tenantID, projectID, projectName, deploymentID, domain, containerPort string) map[string]string {
 	labels := GenerateTraefikLabels(projectName, projectID, domain, containerPort)
 	
 	labels["pontoon.tenant"] = tenantID
 	labels["pontoon.project-id"] = projectID
+	labels["pontoon.deployment-id"] = deploymentID
 	
 	return labels
 }

@@ -172,6 +172,7 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 		TenantID:      payload.UserID,
 		ProjectID:     payload.ProjectID,
 		ProjectName:   project.Name,
+		DeploymentID:  payload.DeploymentID,
 		Domain:        payload.Domain,
 		MemoryLimitMB: p.maxMemoryMB,
 		CPULimit:      0.5,

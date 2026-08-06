@@ -25,6 +25,7 @@ func NewProcessor(redisURL string, concurrency int, deployProcessor *DeployProce
 	mux.HandleFunc(tasks.TypeRollback, deployProcessor.ProcessRollbackTask)
 	mux.HandleFunc(tasks.TypePruneImages, deployProcessor.ProcessPruneImagesTask)
 	mux.HandleFunc(tasks.TypeDeleteWebhook, deployProcessor.ProcessDeleteWebhookTask)
+	mux.HandleFunc(tasks.TypeMonitorHealth, deployProcessor.ProcessMonitorHealthTask)
 
 	return &Processor{
 		server: server,

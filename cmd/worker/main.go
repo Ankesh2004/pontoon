@@ -124,10 +124,14 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to register reaper task: %w", err)
 	}
 
-	prunerTask := asynq.NewTask(tasks.TypePruneImages, nil)
-	_, err = scheduler.Register("0 * * * *", prunerTask)
+	_, err = scheduler.Register("0 * * * *", asynq.NewTask(tasks.TypePruneImages, nil))
 	if err != nil {
-		return fmt.Errorf("failed to register pruner task: %w", err)
+		slog.Error("failed to register image pruner cron", "error", err)
+	}
+
+	_, err = scheduler.Register("* * * * *", asynq.NewTask(tasks.TypeMonitorHealth, nil))
+	if err != nil {
+		slog.Error("failed to register health monitor cron", "error", err)
 	}
 
 	go func() {

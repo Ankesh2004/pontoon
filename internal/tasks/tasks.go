@@ -8,6 +8,7 @@ const (
 	TypeRollback      = "deployments:rollback"
 	TypePruneImages   = "images:prune"
 	TypeDeleteWebhook = "github:delete_webhook"
+	TypeMonitorHealth = "deployments:monitor_health"
 )
 
 type DeployPayload struct {
