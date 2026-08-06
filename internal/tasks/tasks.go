@@ -3,10 +3,11 @@ package tasks
 import "encoding/json"
 
 const (
-	TypeDeploy      = "deploy"
-	TypeReapStuck   = "deployments:reap"
-	TypeRollback    = "deployments:rollback"
-	TypePruneImages = "images:prune"
+	TypeDeploy        = "deploy"
+	TypeReapStuck     = "deployments:reap"
+	TypeRollback      = "deployments:rollback"
+	TypePruneImages   = "images:prune"
+	TypeDeleteWebhook = "github:delete_webhook"
 )
 
 type DeployPayload struct {
@@ -46,6 +47,25 @@ func (p *RollbackPayload) Marshal() ([]byte, error) {
 
 func UnmarshalRollbackPayload(data []byte) (*RollbackPayload, error) {
 	var payload RollbackPayload
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, err
+	}
+	return &payload, nil
+}
+
+type DeleteWebhookPayload struct {
+	UserID     string `json:"user_id"`
+	RepoOwner  string `json:"repo_owner"`
+	RepoName   string `json:"repo_name"`
+	WebhookURL string `json:"webhook_url"`
+}
+
+func (p *DeleteWebhookPayload) Marshal() ([]byte, error) {
+	return json.Marshal(p)
+}
+
+func UnmarshalDeleteWebhookPayload(data []byte) (*DeleteWebhookPayload, error) {
+	var payload DeleteWebhookPayload
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return nil, err
 	}

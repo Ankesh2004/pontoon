@@ -9,9 +9,11 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"golang.org/x/oauth2"
 
 	"github.com/Ankesh2004/pontoon/internal/domain"
+	"github.com/Ankesh2004/pontoon/internal/tasks"
 	gh "github.com/Ankesh2004/pontoon/internal/infrastructure/github"
 	"github.com/Ankesh2004/pontoon/internal/infrastructure/docker"
 )
@@ -21,6 +23,7 @@ type ProjectUseCase struct {
 	deploymentRepo domain.DeploymentRepository
 	envVarRepo     domain.EnvVarRepository
 	userRepo       domain.UserRepository
+	asynqClient    *asynq.Client
 	dockerClient   *docker.Client
 	defaultDomain  string
 	apiURL         string
@@ -31,6 +34,7 @@ func NewProjectUseCase(
 	deploymentRepo domain.DeploymentRepository,
 	envVarRepo domain.EnvVarRepository,
 	userRepo domain.UserRepository,
+	asynqClient *asynq.Client,
 	dockerClient *docker.Client,
 	defaultDomain string,
 	apiURL string,
@@ -40,6 +44,7 @@ func NewProjectUseCase(
 		deploymentRepo: deploymentRepo,
 		envVarRepo:     envVarRepo,
 		userRepo:       userRepo,
+		asynqClient:    asynqClient,
 		dockerClient:   dockerClient,
 		defaultDomain:  defaultDomain,
 		apiURL:         apiURL,
@@ -218,6 +223,23 @@ func (uc *ProjectUseCase) DeleteProject(ctx context.Context, userID, projectID s
 				_ = uc.dockerClient.RemoveImage(context.Background(), img)
 			}(deployment.DockerImage)
 		}
+	}
+
+	// Enqueue webhook deletion task
+	payload := &tasks.DeleteWebhookPayload{
+		UserID:     project.UserID,
+		RepoOwner:  project.RepoOwner,
+		RepoName:   project.RepoName,
+		WebhookURL: fmt.Sprintf("%s/webhooks/github?project_id=%s", uc.apiURL, project.ID),
+	}
+	
+	if payloadBytes, err := payload.Marshal(); err == nil {
+		task := asynq.NewTask(tasks.TypeDeleteWebhook, payloadBytes)
+		if _, err := uc.asynqClient.Enqueue(task); err != nil {
+			slog.Warn("failed to enqueue webhook deletion task", "project_id", project.ID, "error", err)
+		}
+	} else {
+		slog.Warn("failed to marshal webhook deletion payload", "error", err)
 	}
 
 	return uc.projectRepo.Delete(projectID)

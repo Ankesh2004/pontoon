@@ -74,3 +74,32 @@ func (c *Client) CreateWebhook(ctx context.Context, owner, repo, webhookURL, web
 
 	return nil
 }
+
+func (c *Client) DeleteWebhook(ctx context.Context, owner, repo, webhookURL string) error {
+	opts := &github.ListOptions{PerPage: 100}
+	
+	for {
+		hooks, resp, err := c.client.Repositories.ListHooks(ctx, owner, repo, opts)
+		if err != nil {
+			return fmt.Errorf("failed to list webhooks: %w", err)
+		}
+
+		for _, hook := range hooks {
+			if hook.Config != nil && hook.Config.URL != nil && *hook.Config.URL == webhookURL {
+				_, err := c.client.Repositories.DeleteHook(ctx, owner, repo, hook.GetID())
+				if err != nil {
+					return fmt.Errorf("failed to delete webhook %d: %w", hook.GetID(), err)
+				}
+				return nil
+			}
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+
+	// Not found, which is fine (already deleted or never created)
+	return nil
+}

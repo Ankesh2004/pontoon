@@ -25,6 +25,7 @@ type DeployProcessor struct {
 	deploymentRepo domain.DeploymentRepository
 	projectRepo    domain.ProjectRepository
 	envVarRepo     domain.EnvVarRepository
+	userRepo       domain.UserRepository
 	capacityUC     *usecase.CapacityUseCase
 	maxMemoryMB    int
 	redisClient    *goredis.Client
@@ -35,6 +36,7 @@ func NewDeployProcessor(
 	deploymentRepo domain.DeploymentRepository,
 	projectRepo domain.ProjectRepository,
 	envVarRepo domain.EnvVarRepository,
+	userRepo domain.UserRepository,
 	capacityUC *usecase.CapacityUseCase,
 	maxMemoryMB int,
 	redisClient *goredis.Client,
@@ -44,6 +46,7 @@ func NewDeployProcessor(
 		deploymentRepo: deploymentRepo,
 		projectRepo:    projectRepo,
 		envVarRepo:     envVarRepo,
+		userRepo:       userRepo,
 		capacityUC:     capacityUC,
 		maxMemoryMB:    maxMemoryMB,
 		redisClient:    redisClient,
