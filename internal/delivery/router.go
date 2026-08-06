@@ -20,6 +20,13 @@ import (
 	"github.com/Ankesh2004/pontoon/internal/usecase"
 )
 
+const (
+	RateLimitGlobal   = 100
+	RateLimitAuth     = 10
+	RateLimitDeploy   = 5
+	RateLimitWebhooks = 30
+)
+
 type Router struct {
 	*chi.Mux
 }
@@ -73,7 +80,7 @@ func NewRouter(
 	)
 
 	r.Route("/auth", func(r chi.Router) {
-		r.Use(httprate.LimitByIP(10, 1*time.Minute))
+		r.Use(httprate.LimitByIP(RateLimitAuth, 1*time.Minute))
 		r.Get("/github", authHandler.Login)
 		r.Get("/callback", authHandler.Callback)
 		r.Get("/logout", authHandler.Logout)
@@ -91,10 +98,10 @@ func NewRouter(
 		})
 	})
 
-	r.With(httprate.LimitByIP(30, 1*time.Minute)).Post("/webhooks/github", webhookHandler.Handle)
+	r.With(httprate.LimitByIP(RateLimitWebhooks, 1*time.Minute)).Post("/webhooks/github", webhookHandler.Handle)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Use(httprate.LimitByIP(100, 1*time.Minute))
+		r.Use(httprate.LimitByIP(RateLimitGlobal, 1*time.Minute))
 		r.Use(mw.Auth(authUC))
 		r.Use(csrfMiddleware)
 
@@ -110,7 +117,7 @@ func NewRouter(
 			r.Put("/{id}", projectHandler.Update)
 			r.Delete("/{id}", projectHandler.Delete)
 
-			r.With(httprate.LimitByIP(5, 1*time.Minute)).Post("/{id}/deploy", deploymentHandler.Trigger)
+			r.With(httprate.LimitByIP(RateLimitDeploy, 1*time.Minute)).Post("/{id}/deploy", deploymentHandler.Trigger)
 			r.Get("/{id}/deployments", deploymentHandler.List)
 
 			r.Post("/{id}/env", envVarHandler.Create)
