@@ -79,6 +79,34 @@ func (r *DeploymentRepo) GetByProjectID(projectID string) ([]*domain.Deployment,
 	return deployments, nil
 }
 
+func (r *DeploymentRepo) GetActiveByProjectID(projectID string) ([]*domain.Deployment, error) {
+	query := `
+		SELECT id, project_id, user_id, status, commit_sha, docker_image, container_id, container_name, memory_limit_mb, build_logs, triggered_by, created_at, updated_at
+		FROM deployments WHERE project_id = $1 AND status IN ('pending', 'cloning', 'building', 'running')
+		ORDER BY created_at DESC
+	`
+	rows, err := r.pool.Query(context.Background(), query, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var deployments []*domain.Deployment
+	for rows.Next() {
+		var deployment domain.Deployment
+		if err := rows.Scan(
+			&deployment.ID, &deployment.ProjectID, &deployment.UserID, &deployment.Status,
+			&deployment.CommitSHA, &deployment.DockerImage, &deployment.ContainerID,
+			&deployment.ContainerName, &deployment.MemoryLimitMB, &deployment.BuildLogs,
+			&deployment.TriggeredBy, &deployment.CreatedAt, &deployment.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		deployments = append(deployments, &deployment)
+	}
+	return deployments, nil
+}
+
 func (r *DeploymentRepo) GetByUserID(userID string) ([]*domain.Deployment, error) {
 	query := `
 		SELECT id, project_id, user_id, status, commit_sha, docker_image, container_id, container_name, memory_limit_mb, build_logs, triggered_by, created_at, updated_at

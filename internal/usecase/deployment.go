@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -47,6 +48,15 @@ func (uc *DeploymentUseCase) TriggerDeployment(ctx context.Context, input Trigge
 
 	if project.UserID != input.UserID {
 		return nil, domain.ErrForbidden
+	}
+
+	// Cancel any in-progress deployments for this project so we don't end
+	// up with two containers fighting over the same Traefik Host() rule.
+	if activeDeployments, err := uc.deploymentRepo.GetActiveByProjectID(input.ProjectID); err == nil {
+		for _, activeDep := range activeDeployments {
+			slog.Info("superseding active deployment", "old_deployment_id", activeDep.ID, "project_id", input.ProjectID)
+			_ = uc.deploymentRepo.UpdateStatus(activeDep.ID, domain.DeploymentStatusFailed, "Cancelled: superseded by a newer deployment")
+		}
 	}
 
 	deployment := &domain.Deployment{

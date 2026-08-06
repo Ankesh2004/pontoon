@@ -154,6 +154,17 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to run container: %w", err), truncatedLogs)
 	}
 
+	// Safety net: check if this deployment was superseded while we were building.
+	// A newer TriggerDeployment call would have marked us as "failed" in the DB.
+	currentDep, err := p.deploymentRepo.GetByID(payload.DeploymentID)
+	if err == nil && currentDep.Status == domain.DeploymentStatusFailed {
+		slog.Info("deployment was superseded during build, cleaning up", "deployment_id", payload.DeploymentID)
+		_ = p.dockerClient.StopContainer(ctx, containerID)
+		_ = p.dockerClient.RemoveContainer(ctx, containerID)
+		_ = p.dockerClient.RemoveImage(ctx, imageTag)
+		return nil
+	}
+
 	// Stop existing live deployments for zero-downtime transition
 	if oldDeployments, err := p.deploymentRepo.GetByProjectID(payload.ProjectID); err == nil {
 		for _, oldDep := range oldDeployments {

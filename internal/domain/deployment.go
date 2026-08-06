@@ -34,6 +34,7 @@ type DeploymentRepository interface {
 	Create(deployment *Deployment) error
 	GetByID(id string) (*Deployment, error)
 	GetByProjectID(projectID string) ([]*Deployment, error)
+	GetActiveByProjectID(projectID string) ([]*Deployment, error)
 	GetByUserID(userID string) ([]*Deployment, error)
 	Update(deployment *Deployment) error
 	UpdateStatus(id string, status DeploymentStatus, logs string) error
