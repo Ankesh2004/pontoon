@@ -4,9 +4,11 @@ import (
 	"crypto/sha256"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 	"github.com/gorilla/csrf"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
@@ -71,6 +73,7 @@ func NewRouter(
 	)
 
 	r.Route("/auth", func(r chi.Router) {
+		r.Use(httprate.LimitByIP(10, 1*time.Minute))
 		r.Get("/github", authHandler.Login)
 		r.Get("/callback", authHandler.Callback)
 		r.Get("/logout", authHandler.Logout)
@@ -88,9 +91,10 @@ func NewRouter(
 		})
 	})
 
-	r.Post("/webhooks/github", webhookHandler.Handle)
+	r.With(httprate.LimitByIP(30, 1*time.Minute)).Post("/webhooks/github", webhookHandler.Handle)
 
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(httprate.LimitByIP(100, 1*time.Minute))
 		r.Use(mw.Auth(authUC))
 		r.Use(csrfMiddleware)
 
@@ -106,7 +110,7 @@ func NewRouter(
 			r.Put("/{id}", projectHandler.Update)
 			r.Delete("/{id}", projectHandler.Delete)
 
-			r.Post("/{id}/deploy", deploymentHandler.Trigger)
+			r.With(httprate.LimitByIP(5, 1*time.Minute)).Post("/{id}/deploy", deploymentHandler.Trigger)
 			r.Get("/{id}/deployments", deploymentHandler.List)
 
 			r.Post("/{id}/env", envVarHandler.Create)
