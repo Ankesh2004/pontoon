@@ -71,7 +71,7 @@ func run(ctx context.Context) error {
 
 	deploymentRepo := postgres.NewDeploymentRepo(pool)
 	projectRepo := postgres.NewProjectRepo(pool)
-	envVarRepo := postgres.NewEnvVarRepo(pool)
+	envVarRepo := postgres.NewEnvVarRepo(pool, cfg.EncryptionKey)
 
 	redisClient, err := redis.NewRedisClient(cfg.Redis.URL)
 	if err != nil {

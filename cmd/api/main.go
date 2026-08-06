@@ -62,7 +62,7 @@ func run(ctx context.Context) error {
 	userRepo := postgres.NewUserRepo(pool)
 	projectRepo := postgres.NewProjectRepo(pool)
 	deploymentRepo := postgres.NewDeploymentRepo(pool)
-	envVarRepo := postgres.NewEnvVarRepo(pool)
+	envVarRepo := postgres.NewEnvVarRepo(pool, cfg.EncryptionKey)
 
 	oauthService := github.NewOAuthService(github.OAuthConfig{
 		ClientID:     cfg.GitHub.ClientID,

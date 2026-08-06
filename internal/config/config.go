@@ -14,10 +14,11 @@ type Config struct {
 	GitHub      GitHubConfig
 	JWT         JWTConfig
 	Domain      DomainConfig
-	Worker      WorkerConfig
-	Webhook     WebhookConfig
-	CORS        CORSConfig
-	FrontendURL string
+	Worker        WorkerConfig
+	Webhook       WebhookConfig
+	CORS          CORSConfig
+	FrontendURL   string
+	EncryptionKey []byte
 }
 
 type CORSConfig struct {
@@ -91,7 +92,8 @@ func Load() (*Config, error) {
 		CORS: CORSConfig{
 			AllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{"http://localhost:5173"}),
 		},
-		FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"),
+		FrontendURL:   getEnv("FRONTEND_URL", "http://localhost:5173"),
+		EncryptionKey: []byte(getEnv("ENCRYPTION_KEY", "")),
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -116,6 +118,9 @@ func (c *Config) Validate() error {
 	}
 	if c.JWT.Secret == "" {
 		return fmt.Errorf("JWT_SECRET is required")
+	}
+	if len(c.EncryptionKey) != 32 {
+		return fmt.Errorf("ENCRYPTION_KEY is required and must be exactly 32 bytes long (got %d bytes)", len(c.EncryptionKey))
 	}
 	return nil
 }

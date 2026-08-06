@@ -7,24 +7,31 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/Ankesh2004/pontoon/internal/domain"
+	"github.com/Ankesh2004/pontoon/internal/pkg/crypto"
 )
 
 type EnvVarRepo struct {
 	pool *pgxpool.Pool
+	key  []byte
 }
 
-func NewEnvVarRepo(pool *pgxpool.Pool) *EnvVarRepo {
-	return &EnvVarRepo{pool: pool}
+func NewEnvVarRepo(pool *pgxpool.Pool, key []byte) *EnvVarRepo {
+	return &EnvVarRepo{pool: pool, key: key}
 }
 
 func (r *EnvVarRepo) Create(envVar *domain.EnvVar) error {
+	encryptedValue, err := crypto.Encrypt(envVar.Value, r.key)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO env_vars (id, project_id, key, value)
 		VALUES ($1, $2, $3, $4)
 		RETURNING created_at
 	`
 	return r.pool.QueryRow(context.Background(), query,
-		envVar.ID, envVar.ProjectID, envVar.Key, envVar.Value,
+		envVar.ID, envVar.ProjectID, envVar.Key, encryptedValue,
 	).Scan(&envVar.CreatedAt)
 }
 
@@ -43,9 +50,15 @@ func (r *EnvVarRepo) GetByProjectID(projectID string) ([]*domain.EnvVar, error) 
 	var envVars []*domain.EnvVar
 	for rows.Next() {
 		var envVar domain.EnvVar
-		if err := rows.Scan(&envVar.ID, &envVar.ProjectID, &envVar.Key, &envVar.Value, &envVar.CreatedAt); err != nil {
+		var encryptedValue string
+		if err := rows.Scan(&envVar.ID, &envVar.ProjectID, &envVar.Key, &encryptedValue, &envVar.CreatedAt); err != nil {
 			return nil, err
 		}
+		decryptedValue, err := crypto.Decrypt(encryptedValue, r.key)
+		if err != nil {
+			return nil, err
+		}
+		envVar.Value = decryptedValue
 		envVars = append(envVars, &envVar)
 	}
 	return envVars, nil
@@ -57,8 +70,9 @@ func (r *EnvVarRepo) GetByID(id string) (*domain.EnvVar, error) {
 		FROM env_vars WHERE id = $1
 	`
 	var envVar domain.EnvVar
+	var encryptedValue string
 	err := r.pool.QueryRow(context.Background(), query, id).Scan(
-		&envVar.ID, &envVar.ProjectID, &envVar.Key, &envVar.Value, &envVar.CreatedAt,
+		&envVar.ID, &envVar.ProjectID, &envVar.Key, &encryptedValue, &envVar.CreatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -66,16 +80,28 @@ func (r *EnvVarRepo) GetByID(id string) (*domain.EnvVar, error) {
 		}
 		return nil, err
 	}
+	
+	decryptedValue, err := crypto.Decrypt(encryptedValue, r.key)
+	if err != nil {
+		return nil, err
+	}
+	envVar.Value = decryptedValue
+	
 	return &envVar, nil
 }
 
 func (r *EnvVarRepo) Update(envVar *domain.EnvVar) error {
+	encryptedValue, err := crypto.Encrypt(envVar.Value, r.key)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE env_vars
 		SET key = $1, value = $2
 		WHERE id = $3
 	`
-	tag, err := r.pool.Exec(context.Background(), query, envVar.Key, envVar.Value, envVar.ID)
+	tag, err := r.pool.Exec(context.Background(), query, envVar.Key, encryptedValue, envVar.ID)
 	if err != nil {
 		return err
 	}
