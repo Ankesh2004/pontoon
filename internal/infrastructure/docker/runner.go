@@ -60,6 +60,13 @@ func (c *Client) RunContainer(ctx context.Context, cfg RunConfig) (string, error
 			Memory:     int64(cfg.MemoryLimitMB) * 1024 * 1024,
 			NanoCPUs:   int64(cfg.CPULimit * 1e9),
 		},
+		LogConfig: container.LogConfig{
+			Type: "json-file",
+			Config: map[string]string{
+				"max-size": "10m",
+				"max-file": "3",
+			},
+		},
 		SecurityOpt: []string{"no-new-privileges:true"},
 		CapDrop: []string{
 			"SYS_ADMIN",
