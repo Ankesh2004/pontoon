@@ -107,6 +107,69 @@ func (uc *DeploymentUseCase) GetDeployment(ctx context.Context, userID, deployme
 	return deployment, nil
 }
 
+func (uc *DeploymentUseCase) TriggerRollback(ctx context.Context, userID, projectID, targetDeploymentID string) (*domain.Deployment, error) {
+	project, err := uc.projectRepo.GetByID(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	if project.UserID != userID {
+		return nil, domain.ErrForbidden
+	}
+
+	targetDeployment, err := uc.deploymentRepo.GetByID(targetDeploymentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get target deployment: %w", err)
+	}
+
+	if targetDeployment.ProjectID != projectID || targetDeployment.DockerImage == "" {
+		return nil, fmt.Errorf("invalid rollback target")
+	}
+
+	// Cancel any active deployments
+	if activeDeployments, err := uc.deploymentRepo.GetActiveByProjectID(projectID); err == nil {
+		for _, activeDep := range activeDeployments {
+			slog.Info("superseding active deployment for rollback", "old_deployment_id", activeDep.ID, "project_id", projectID)
+			_ = uc.deploymentRepo.UpdateStatus(activeDep.ID, domain.DeploymentStatusFailed, "Cancelled: superseded by a rollback")
+		}
+	}
+
+	// Create new pending deployment for the rollback
+	rollbackDeployment := &domain.Deployment{
+		ID:          uuid.New().String(),
+		ProjectID:   projectID,
+		UserID:      userID,
+		Status:      domain.DeploymentStatusPending,
+		CommitSHA:   targetDeployment.CommitSHA,
+		DockerImage: targetDeployment.DockerImage,
+		TriggeredBy: "rollback",
+	}
+
+	if err := uc.deploymentRepo.Create(rollbackDeployment); err != nil {
+		return nil, fmt.Errorf("failed to create rollback deployment: %w", err)
+	}
+
+	payload := &tasks.RollbackPayload{
+		DeploymentID: rollbackDeployment.ID,
+		ProjectID:    projectID,
+		UserID:       userID,
+		Domain:       project.Domain,
+		TargetImage:  targetDeployment.DockerImage,
+	}
+
+	payloadBytes, err := payload.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	task := asynq.NewTask(tasks.TypeRollback, payloadBytes)
+	if _, err := uc.asynqClient.Enqueue(task); err != nil {
+		return nil, fmt.Errorf("failed to enqueue task: %w", err)
+	}
+
+	return rollbackDeployment, nil
+}
+
 func (uc *DeploymentUseCase) ListDeployments(ctx context.Context, userID, projectID string) ([]*domain.Deployment, error) {
 	project, err := uc.projectRepo.GetByID(projectID)
 	if err != nil {

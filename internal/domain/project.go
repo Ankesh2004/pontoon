@@ -20,6 +20,7 @@ type ProjectRepository interface {
 	Create(project *Project) error
 	GetByID(id string) (*Project, error)
 	GetByUserID(userID string) ([]*Project, error)
+	GetAll() ([]*Project, error)
 	GetByRepo(owner, name string) (*Project, error)
 	Update(project *Project) error
 	Delete(id string) error

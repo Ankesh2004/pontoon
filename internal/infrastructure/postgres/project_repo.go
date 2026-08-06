@@ -76,6 +76,32 @@ func (r *ProjectRepo) GetByUserID(userID string) ([]*domain.Project, error) {
 	return projects, nil
 }
 
+func (r *ProjectRepo) GetAll() ([]*domain.Project, error) {
+	query := `
+		SELECT id, user_id, name, repo_url, repo_owner, repo_name, branch, domain, webhook_secret, created_at, updated_at
+		FROM projects
+	`
+	rows, err := r.pool.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var projects []*domain.Project
+	for rows.Next() {
+		var project domain.Project
+		if err := rows.Scan(
+			&project.ID, &project.UserID, &project.Name, &project.RepoURL,
+			&project.RepoOwner, &project.RepoName, &project.Branch, &project.Domain,
+			&project.WebhookSecret, &project.CreatedAt, &project.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		projects = append(projects, &project)
+	}
+	return projects, nil
+}
+
 func (r *ProjectRepo) GetByRepo(owner, name string) (*domain.Project, error) {
 	query := `
 		SELECT id, user_id, name, repo_url, repo_owner, repo_name, branch, domain, webhook_secret, created_at, updated_at

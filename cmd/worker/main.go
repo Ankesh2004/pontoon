@@ -122,6 +122,12 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("failed to register reaper task: %w", err)
 	}
 
+	prunerTask := asynq.NewTask(tasks.TypePruneImages, nil)
+	_, err = scheduler.Register("0 * * * *", prunerTask)
+	if err != nil {
+		return fmt.Errorf("failed to register pruner task: %w", err)
+	}
+
 	go func() {
 		if err := scheduler.Start(); err != nil {
 			slog.Error("scheduler error", "error", err)

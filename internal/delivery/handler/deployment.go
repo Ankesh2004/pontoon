@@ -194,3 +194,41 @@ func (h *DeploymentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *DeploymentHandler) Rollback(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	projectID := chi.URLParam(r, "id")
+	if projectID == "" {
+		http.Error(w, "project id required", http.StatusBadRequest)
+		return
+	}
+
+	deploymentID := chi.URLParam(r, "deploymentId")
+	if deploymentID == "" {
+		http.Error(w, "deployment id required", http.StatusBadRequest)
+		return
+	}
+
+	deployment, err := h.deploymentUC.TriggerRollback(r.Context(), userID, projectID, deploymentID)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, "project or deployment not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(deployment)
+}

@@ -119,6 +119,7 @@ func NewRouter(
 
 			r.With(httprate.LimitByIP(RateLimitDeploy, 1*time.Minute)).Post("/{id}/deploy", deploymentHandler.Trigger)
 			r.Get("/{id}/deployments", deploymentHandler.List)
+			r.Post("/{id}/deployments/{deploymentId}/rollback", deploymentHandler.Rollback)
 
 			r.Post("/{id}/env", envVarHandler.Create)
 			r.Get("/{id}/env", envVarHandler.List)
