@@ -21,6 +21,7 @@ import {
   Activity,
   Trash2,
   Wand2,
+  RotateCcw,
 } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 import { Button } from '../../components/ui/button';
@@ -237,6 +238,14 @@ export function DeploymentDetailPage() {
     },
   });
 
+  const rollbackMutation = useMutation({
+    mutationFn: () => deploymentsApi.rollback(deployment!.project_id, deploymentId),
+    onSuccess: (newDeployment) => {
+      queryClient.invalidateQueries({ queryKey: ['deployments'] });
+      navigate({ to: `/deployments/${newDeployment.id}` });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => deploymentsApi.delete(deploymentId),
     onSuccess: () => {
@@ -327,6 +336,21 @@ export function DeploymentDetailPage() {
                 <Square className="mr-2 h-3.5 w-3.5" />
               )}
               {stopMutation.isPending ? 'Stopping…' : 'Stop'}
+            </Button>
+          )}
+          {status === 'stopped' && deployment?.docker_image && (
+            <Button
+              variant="outline"
+              className="border-primary text-primary hover:bg-primary/10"
+              onClick={() => rollbackMutation.mutate()}
+              disabled={rollbackMutation.isPending}
+            >
+              {rollbackMutation.isPending ? (
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-3.5 w-3.5" />
+              )}
+              {rollbackMutation.isPending ? 'Rolling back…' : 'Rollback to here'}
             </Button>
           )}
           {isLive && deploymentUrl && (
