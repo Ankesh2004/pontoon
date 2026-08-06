@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/hibiken/asynq"
 	goredis "github.com/redis/go-redis/v9"
@@ -54,6 +55,26 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	}
 
 	slog.Info("processing deployment", "deployment_id", payload.DeploymentID)
+
+	// Attempt to acquire distributed lock for this project
+	lockKey := fmt.Sprintf("deploy_lock:%s", payload.ProjectID)
+	acquired, err := p.redisClient.SetNX(ctx, lockKey, payload.DeploymentID, 15*time.Minute).Result()
+	if err != nil {
+		slog.Error("failed to check redis lock", "error", err)
+		return fmt.Errorf("redis error checking lock: %w", err)
+	}
+	if !acquired {
+		slog.Info("project is currently locked by another deployment, will retry later", "project_id", payload.ProjectID)
+		return fmt.Errorf("project locked by another deployment") // returning error triggers asynq backoff without failing the deployment status
+	}
+	defer p.redisClient.Del(context.Background(), lockKey)
+
+	// FAST PATH ABORT: Check if we were superseded while waiting in queue
+	currentDep, err := p.deploymentRepo.GetByID(payload.DeploymentID)
+	if err == nil && currentDep.Status == domain.DeploymentStatusFailed {
+		slog.Info("skipping deployment, already marked as failed (superseded)", "deployment_id", payload.DeploymentID)
+		return nil
+	}
 
 	// Check capacity before starting
 	if err := p.capacityUC.CheckCapacity(ctx, p.maxMemoryMB); err != nil {
@@ -156,7 +177,7 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 
 	// Safety net: check if this deployment was superseded while we were building.
 	// A newer TriggerDeployment call would have marked us as "failed" in the DB.
-	currentDep, err := p.deploymentRepo.GetByID(payload.DeploymentID)
+	currentDep, err = p.deploymentRepo.GetByID(payload.DeploymentID)
 	if err == nil && currentDep.Status == domain.DeploymentStatusFailed {
 		slog.Info("deployment was superseded during build, cleaning up", "deployment_id", payload.DeploymentID)
 		_ = p.dockerClient.StopContainer(ctx, containerID)
