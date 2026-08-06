@@ -18,6 +18,8 @@ import (
 	"github.com/Ankesh2004/pontoon/internal/usecase"
 )
 
+const StartupLivenessDelay = 3 * time.Second
+
 type DeployProcessor struct {
 	dockerClient   *docker.Client
 	deploymentRepo domain.DeploymentRepository
@@ -173,6 +175,15 @@ func (p *DeployProcessor) ProcessDeployTask(ctx context.Context, t *asynq.Task) 
 	})
 	if err != nil {
 		return p.failDeployment(ctx, payload.DeploymentID, imageTag, "", fmt.Errorf("failed to run container: %w", err), truncatedLogs)
+	}
+
+	// LIVENESS CHECK: Wait 3 seconds and ensure it hasn't crashed.
+	time.Sleep(StartupLivenessDelay)
+	inspect, err := p.dockerClient.ContainerInspect(ctx, containerID)
+	if err == nil && !inspect.State.Running {
+		crashLogs, _ := p.dockerClient.GetContainerLogs(ctx, containerID, 100)
+		finalLogs := truncatedLogs + "\n\n--- RUNTIME CRASH (Startup Failed) ---\n" + crashLogs
+		return p.failDeployment(ctx, payload.DeploymentID, imageTag, containerID, fmt.Errorf("container crashed immediately after startup"), finalLogs)
 	}
 
 	// Safety net: check if this deployment was superseded while we were building.
