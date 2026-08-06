@@ -164,9 +164,14 @@ func (uc *ProjectUseCase) UpdateProject(ctx context.Context, userID, projectID s
 		return nil, domain.ErrForbidden
 	}
 
+	user, err := uc.userRepo.GetByID(userID)
+	if err != nil || user == nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
 	if input.Name != "" {
 		project.Name = input.Name
-		project.Domain = fmt.Sprintf("%s.%s", input.Name, uc.defaultDomain)
+		project.Domain = fmt.Sprintf("%s-%s.%s", input.Name, strings.ToLower(user.GitHubUsername), uc.defaultDomain)
 	}
 	if input.Branch != "" {
 		project.Branch = input.Branch
