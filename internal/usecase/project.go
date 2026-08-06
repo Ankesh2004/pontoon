@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -54,6 +55,11 @@ type CreateProjectInput struct {
 }
 
 func (uc *ProjectUseCase) CreateProject(ctx context.Context, input CreateProjectInput) (*domain.Project, error) {
+	user, err := uc.userRepo.GetByID(input.UserID)
+	if err != nil || user == nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
 	owner, name, err := parseRepoURL(input.RepoURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid repo URL: %w", err)
@@ -72,7 +78,7 @@ func (uc *ProjectUseCase) CreateProject(ctx context.Context, input CreateProject
 		RepoOwner:     owner,
 		RepoName:      name,
 		Branch:        input.Branch,
-		Domain:        fmt.Sprintf("%s.%s", input.Name, uc.defaultDomain),
+		Domain:        fmt.Sprintf("%s-%s.%s", input.Name, strings.ToLower(user.GitHubUsername), uc.defaultDomain),
 		WebhookSecret: webhookSecret,
 	}
 
@@ -94,15 +100,14 @@ func (uc *ProjectUseCase) CreateProject(ctx context.Context, input CreateProject
 	})
 
 	// Try to auto-register webhook
-	go func() {
-		user, err := uc.userRepo.GetByID(input.UserID)
-		if err != nil || user == nil || user.AccessToken == "" {
+	go func(u *domain.User) {
+		if u.AccessToken == "" {
 			slog.Warn("skipping webhook auto-registration: could not get user access token", "project_id", project.ID)
 			return
 		}
 
 		// Create github client with user's token
-		token := &oauth2.Token{AccessToken: user.AccessToken}
+		token := &oauth2.Token{AccessToken: u.AccessToken}
 		ghClient := gh.NewClient(context.Background(), token)
 
 		webhookURL := fmt.Sprintf("%s/webhooks/github?project_id=%s", uc.apiURL, project.ID)
@@ -114,7 +119,7 @@ func (uc *ProjectUseCase) CreateProject(ctx context.Context, input CreateProject
 		}
 
 		slog.Info("successfully auto-registered webhook", "project_id", project.ID)
-	}()
+	}(user)
 
 	return project, nil
 }
